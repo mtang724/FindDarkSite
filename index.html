@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FindDarkSite — Dark Sky Site Finder</title>
+  <meta name="description" content="Find the best dark sky stargazing locations near you in the US, with nearby campgrounds, lodging, and parking." />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- Header -->
+    <header id="header">
+      <div class="header-brand">
+        <span class="header-icon">🌌</span>
+        <h1>FindDarkSite</h1>
+      </div>
+      <div class="header-actions">
+        <button id="btn-favorites" class="header-btn" title="Saved Sites">
+          <span>⭐</span> <span class="btn-label">Saved</span>
+        </button>
+      </div>
+    </header>
+
+    <!-- Sidebar -->
+    <aside id="sidebar">
+      <!-- Search Panel -->
+      <div id="search-panel" class="panel">
+        <h2 class="panel-title">Find Dark Sites</h2>
+
+        <div class="form-group">
+          <label for="input-location">Location</label>
+          <div class="input-row">
+            <input type="text" id="input-location" placeholder="e.g. 34.05, -118.24" />
+            <button id="btn-geolocate" class="icon-btn" title="Use my location">📍</button>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="input-radius">Search Radius: <span id="radius-value">150</span> km</label>
+          <input type="range" id="input-radius" min="30" max="400" value="150" step="10" />
+        </div>
+
+        <div class="form-group">
+          <label for="input-sqm">Min SQM: <span id="sqm-value">20.5</span> <span id="bortle-value" class="bortle-badge bortle-4">Bortle 4</span></label>
+          <input type="range" id="input-sqm" min="18.0" max="22.0" value="20.5" step="0.1" />
+        </div>
+
+        <div class="form-group">
+          <label>Data Source</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="data-source" value="precomputed" checked />
+              <span>Pre-computed scan</span>
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="data-source" value="live" />
+              <span>Live API (slow)</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group" id="scan-file-group">
+          <label for="input-scan-file">Scan Data File</label>
+          <input type="file" id="input-scan-file" accept=".json" />
+          <p class="form-hint">Upload the JSON from scan-grid.js</p>
+        </div>
+
+        <div class="form-group" id="live-options" style="display:none">
+          <label>Grid Step</label>
+          <div class="radio-group">
+            <label class="radio-option">
+              <input type="radio" name="grid-step" value="3" /> 3 km
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="grid-step" value="5" checked /> 5 km
+            </label>
+            <label class="radio-option">
+              <input type="radio" name="grid-step" value="10" /> 10 km
+            </label>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="input-max-results">Max Results</label>
+          <select id="input-max-results">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+
+        <button id="btn-search" class="btn-primary">
+          <span class="btn-icon">🔭</span> Find Dark Sites
+        </button>
+
+        <!-- Progress Bar -->
+        <div id="progress-container" class="hidden">
+          <div class="progress-bar">
+            <div id="progress-fill" class="progress-fill"></div>
+          </div>
+          <p id="progress-text" class="progress-text">Scanning...</p>
+        </div>
+      </div>
+
+      <!-- Results Panel -->
+      <div id="results-panel" class="panel hidden">
+        <div class="results-header">
+          <h2 class="panel-title">Results</h2>
+          <button id="btn-back" class="text-btn">← New Search</button>
+        </div>
+        <div id="results-stats" class="results-stats"></div>
+        <div id="results-list" class="results-list"></div>
+      </div>
+
+      <!-- Favorites Panel -->
+      <div id="favorites-panel" class="panel hidden">
+        <div class="results-header">
+          <h2 class="panel-title">⭐ Saved Sites</h2>
+          <button id="btn-back-fav" class="text-btn">← Back</button>
+        </div>
+        <div id="favorites-list" class="results-list"></div>
+        <div id="favorites-empty" class="empty-state">
+          <p>No saved sites yet.</p>
+          <p class="form-hint">Find dark sites and click ⭐ to save them.</p>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Map -->
+    <main id="map-container">
+      <div id="map"></div>
+      <!-- Map legend -->
+      <div id="map-legend" class="map-legend">
+        <h4>Bortle Scale</h4>
+        <div class="legend-items">
+          <div class="legend-item"><span class="legend-dot bortle-1"></span> 1-2 Excellent</div>
+          <div class="legend-item"><span class="legend-dot bortle-3"></span> 3 Very Good</div>
+          <div class="legend-item"><span class="legend-dot bortle-4"></span> 4 Good</div>
+          <div class="legend-item"><span class="legend-dot bortle-5"></span> 5 Fair</div>
+          <div class="legend-item"><span class="legend-dot bortle-6"></span> 6-7 Urban</div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
