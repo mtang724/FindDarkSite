@@ -1,15 +1,56 @@
 {
   "scans": [
     {
+      "filename": "scan_36.463_-116.8678_8km.json",
+      "centerLat": 36.463,
+      "centerLng": -116.8678,
+      "radiusKm": 8,
+      "stepKm": 5,
+      "layer": "VIIRS_2023",
+      "lastUpdated": "2026-05-28T07:18:33.030721+00:00",
+      "totalPoints": 8,
+      "validPoints": 8
+    },
+    {
+      "filename": "scan_36.5054_-117.0794_8km.json",
+      "centerLat": 36.5054,
+      "centerLng": -117.0794,
+      "radiusKm": 8,
+      "stepKm": 5,
+      "layer": "VIIRS_2023",
+      "lastUpdated": "2026-05-28T07:11:14.559861+00:00",
+      "totalPoints": 8,
+      "validPoints": 8
+    },
+    {
       "filename": "scan_37.3704_-121.8784_200km.json",
       "centerLat": 37.3704,
       "centerLng": -121.8784,
-      "radiusKm": 200.0,
-      "stepKm": 5.0,
+      "radiusKm": 200,
+      "stepKm": 5,
       "layer": "VIIRS_2023",
       "lastUpdated": "2026-05-28T09:09:32.647610+00:00",
       "totalPoints": 5015,
       "validPoints": 5012
+    },
+    {
+      "filename": "scan_40_-110_6km.json",
+      "centerLat": 40,
+      "centerLng": -110,
+      "radiusKm": 6,
+      "stepKm": 5,
+      "layer": "VIIRS_2023",
+      "lastUpdated": "2026-05-28T07:11:38.065Z",
+      "totalPoints": 4,
+      "validPoints": 4
+    },
+    {
+      "filename": "scan_bbox_-125_24_-66.5_50_5km.json",
+      "stepKm": 5,
+      "layer": "VIIRS_2023_VNL_v22",
+      "lastUpdated": "2026-05-28T19:12:41.483Z",
+      "totalPoints": 596742,
+      "validPoints": 596163
     }
   ]
 }
