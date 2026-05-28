@@ -8,6 +8,9 @@
 import { haversineDistance, bearing, bearingToDirection, sqmToBortle, delay } from './utils.js';
 import { liveGridScan, loadScanData } from './lightPollution.js';
 import { searchNearbyPOIsBatch, searchRIDBCampgrounds } from './poiSearch.js';
+import { fetchElevations } from './elevation.js';
+import { fetchForecastsBatch } from './weather.js';
+import { fetchDrivingTimes } from './routing.js';
 
 /**
  * @typedef {Object} FinderOptions
@@ -22,6 +25,9 @@ import { searchNearbyPOIsBatch, searchRIDBCampgrounds } from './poiSearch.js';
  * @property {File} [scanFile] - pre-computed scan JSON file (file upload)
  * @property {Object} [scanData] - pre-parsed scan data (dropdown fetch)
  * @property {number} [gridStepKm] - for live scan
+ * @property {number} [minElevationM] - drop seeds below this elevation (default 0 = no filter)
+ * @property {boolean} [enrichWeather] - fetch cloud-cover forecast for top N (default true)
+ * @property {boolean} [enrichDriving] - fetch driving time for top N (default true)
  * @property {Function} onProgress
  * @property {Function} onStageChange
  */
@@ -38,6 +44,9 @@ export async function findDarkSites(options) {
         poiRadiusM = 8000,
         dataSource = 'precomputed',
         scanFile, scanData, gridStepKm = 5,
+        minElevationM = 0,
+        enrichWeather = true,
+        enrichDriving = true,
         signal,
         onProgress, onStageChange
     } = options;
@@ -83,14 +92,29 @@ export async function findDarkSites(options) {
         .filter(r => r.distance <= radiusKm)
         .sort((a, b) => a.distance - b.distance);
 
-    onStageChange?.('poi-search', `Found ${seeds.length} dark areas, searching for nearby facilities...`);
-
     // ─── Stage 2: POI search for reachability ──────────────────────────────
     // We don't need to search POIs for ALL seeds — group nearby seeds first,
     // then make ONE Overpass query covering every cluster center at once.
     const clusteredSeeds = clusterSeeds(seeds, 5); // cluster within 5km
-    const candidateSeeds = clusteredSeeds.slice(0, maxResults * 2);
+    let candidateSeeds = clusteredSeeds.slice(0, maxResults * 2);
 
+    // ─── Stage 2a: Elevation enrichment (cheap, all candidates) ────────────
+    if (candidateSeeds.length > 0) {
+        onStageChange?.('elevation', `Looking up elevation for ${candidateSeeds.length} sites...`);
+        const elevs = await fetchElevations(
+            candidateSeeds.map(s => ({ lat: s.lat, lng: s.lng })),
+            signal
+        );
+        throwIfAborted();
+        candidateSeeds.forEach((s, i) => { s.elevationM = elevs[i] ?? null; });
+        if (minElevationM > 0) {
+            candidateSeeds = candidateSeeds.filter(
+                s => s.elevationM == null || s.elevationM >= minElevationM
+            );
+        }
+    }
+
+    onStageChange?.('poi-search', `Found ${candidateSeeds.length} dark areas, searching for nearby facilities...`);
     onProgress?.(0, 1, `Fetching facilities for ${candidateSeeds.length} dark areas...`);
     const overpassPOIs = candidateSeeds.length
         ? await searchNearbyPOIsBatch(candidateSeeds.map(s => ({ lat: s.lat, lng: s.lng })), poiRadiusM, signal)
@@ -139,6 +163,44 @@ export async function findDarkSites(options) {
     });
 
     const finalSites = sites.slice(0, maxResults);
+
+    // ─── Stage 3: Enrich top sites with weather & driving time ─────────────
+    // Cap network calls — these hit external APIs per-site.
+    const ENRICH_TOP_N = Math.min(finalSites.length, 12);
+    const topSites = finalSites.slice(0, ENRICH_TOP_N);
+
+    if (enrichWeather && topSites.length > 0) {
+        onStageChange?.('weather', `Fetching cloud-cover forecast for top ${topSites.length}...`);
+        try {
+            const forecasts = await fetchForecastsBatch(
+                topSites.map(s => ({ lat: s.lat, lng: s.lng })),
+                signal,
+                (done, total) => onProgress?.(done, total, `Weather: ${done}/${total}`)
+            );
+            topSites.forEach((s, i) => { s.forecast = forecasts[i]?.nights || []; });
+        } catch (err) {
+            if (err.name === 'AbortError') throw err;
+            console.warn('Weather enrichment failed:', err.message);
+        }
+    }
+    throwIfAborted();
+
+    if (enrichDriving && topSites.length > 0) {
+        onStageChange?.('driving', `Fetching driving time for top ${topSites.length}...`);
+        try {
+            const drives = await fetchDrivingTimes(
+                centerLat, centerLng,
+                topSites.map(s => ({ lat: s.lat, lng: s.lng })),
+                signal,
+                (done, total) => onProgress?.(done, total, `Driving time: ${done}/${total}`)
+            );
+            topSites.forEach((s, i) => { s.driving = drives[i] || null; });
+        } catch (err) {
+            if (err.name === 'AbortError') throw err;
+            console.warn('Driving enrichment failed:', err.message);
+        }
+    }
+    throwIfAborted();
 
     // Stats
     const stats = {

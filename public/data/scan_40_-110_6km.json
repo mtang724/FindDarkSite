@@ -1,0 +1,47 @@
+{
+  "metadata": {
+    "centerLat": 40,
+    "centerLng": -110,
+    "radiusKm": 6,
+    "stepKm": 5,
+    "layer": "VIIRS_2023",
+    "startedAt": "2026-05-28T07:11:35.041Z",
+    "lastUpdated": "2026-05-28T07:11:38.065Z",
+    "totalPoints": 4,
+    "validPoints": 4
+  },
+  "results": [
+    {
+      "lat": 39.99101,
+      "lng": -110.01174,
+      "radiance": 0,
+      "sqm": 22,
+      "bortle": 1,
+      "pixel": 5
+    },
+    {
+      "lat": 39.99101,
+      "lng": -109.95305,
+      "radiance": 0,
+      "sqm": 22,
+      "bortle": 1,
+      "pixel": 5
+    },
+    {
+      "lat": 40.03597,
+      "lng": -110.01175,
+      "radiance": 0,
+      "sqm": 22,
+      "bortle": 1,
+      "pixel": 5
+    },
+    {
+      "lat": 40.03597,
+      "lng": -109.95302,
+      "radiance": 0,
+      "sqm": 22,
+      "bortle": 1,
+      "pixel": 5
+    }
+  ]
+}

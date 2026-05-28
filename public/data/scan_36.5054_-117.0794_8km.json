@@ -1,0 +1,79 @@
+{
+  "metadata": {
+    "centerLat": 36.5054,
+    "centerLng": -117.0794,
+    "radiusKm": 8.0,
+    "stepKm": 5.0,
+    "layer": "VIIRS_2023",
+    "startedAt": "2026-05-28T07:11:06.322854+00:00",
+    "lastUpdated": "2026-05-28T07:11:14.559861+00:00",
+    "totalPoints": 8,
+    "validPoints": 8
+  },
+  "results": [
+    {
+      "lat": 36.47842,
+      "lng": -117.11295,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.47842,
+      "lng": -117.05703,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.47842,
+      "lng": -117.00111,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.52339,
+      "lng": -117.11297,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.52339,
+      "lng": -117.05702,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.52339,
+      "lng": -117.00106,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.56835,
+      "lng": -117.11299,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    },
+    {
+      "lat": 36.56835,
+      "lng": -117.05701,
+      "radiance": 0,
+      "sqm": 22.0,
+      "bortle": 1,
+      "pixel": 5.0
+    }
+  ]
+}

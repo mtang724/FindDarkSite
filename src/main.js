@@ -7,9 +7,15 @@ import 'leaflet/dist/leaflet.css';
 import { findDarkSites } from './finder.js';
 import { haversineDistance, formatDistance, sqmToBortle, bortleDescription, escapeHtml, safeHttpUrl } from './utils.js';
 import { categorizePOI } from './poiSearch.js';
+import { moonSummary, darknessWindow, formatLocalTime } from './astronomy.js';
+import { bestNight } from './weather.js';
+import { formatDriveTime } from './routing.js';
+import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
 let map, searchCircle, markersGroup;
+let siteMarkers = [];       // Leaflet markers indexed by site position in currentResults.sites
+let activeSiteIndex = null;
 let currentResults = null;
 let scanFileData = null;       // File from <input type="file"> fallback
 let selectedScanData = null;   // Parsed JSON from /data/<picked>.json dropdown
@@ -91,6 +97,24 @@ function initUI() {
     bortleValue.className = `bortle-badge bortle-${bortle}`;
   });
 
+  // Min-elevation slider
+  const elevSlider = $('#input-min-elev');
+  const elevValue = $('#elev-value');
+  elevSlider.addEventListener('input', () => {
+    elevValue.textContent = elevSlider.value;
+  });
+
+  // Re-pick scan + recompute moon when user edits location text
+  $('#input-location').addEventListener('change', () => {
+    const parsed = parseLocationInput();
+    if (parsed) {
+      userLat = parsed[0];
+      userLng = parsed[1];
+      updateMoonChip();
+      autoSelectScan();
+    }
+  });
+
   // Data source toggle
   $$('input[name="data-source"]').forEach(radio => {
     radio.addEventListener('change', () => {
@@ -151,6 +175,106 @@ function initUI() {
   $('#btn-back-fav').addEventListener('click', () => {
     showPanel(currentResults ? 'results' : 'search');
   });
+
+  // Export favorites
+  $('#btn-export-fav').addEventListener('click', () => {
+    if (favorites.length === 0) {
+      showToast('Nothing to export yet — save some sites first.');
+      return;
+    }
+    exportFavorites(favorites);
+    showToast(`Exported ${favorites.length} site${favorites.length === 1 ? '' : 's'}.`);
+  });
+
+  // Import favorites
+  $('#input-import-fav').addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const { added, skipped, favorites: merged } = await importFavorites(file, favorites);
+      favorites = merged;
+      localStorage.setItem('darksite-favorites', JSON.stringify(favorites));
+      renderFavorites();
+      showToast(`Imported ${added} new, ${skipped} skipped.`);
+    } catch (err) {
+      showToast(`Import failed: ${err.message}`);
+    } finally {
+      e.target.value = '';
+    }
+  });
+}
+
+// ─── Helpers ─────────────────────────────────────────────────────────────
+function parseLocationInput() {
+  const loc = $('#input-location').value.trim();
+  if (!loc) return null;
+  const parts = loc.split(',').map(s => parseFloat(s.trim()));
+  if (parts.length !== 2 || !isFinite(parts[0]) || !isFinite(parts[1])) return null;
+  return parts;
+}
+
+let toastTimer = null;
+function showToast(text) {
+  let toast = document.getElementById('toast');
+  if (toast) toast.remove();
+  toast = document.createElement('div');
+  toast.id = 'toast';
+  toast.className = 'toast';
+  toast.textContent = text;
+  document.body.appendChild(toast);
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.remove(), 2700);
+}
+
+// ─── Moon Chip ───────────────────────────────────────────────────────────
+function updateMoonChip() {
+  // Use user's coords if available, else map center (US default)
+  const lat = userLat ?? 39.8283;
+  const lng = userLng ?? -98.5795;
+  const m = moonSummary(lat, lng);
+  $('#moon-icon').textContent = m.phaseIcon;
+  const pct = Math.round(m.illumination * 100);
+  let text = `${m.phaseName} · ${pct}%`;
+  if (m.moonset && m.moonrise && m.moonset < m.moonrise) {
+    text += ` · sets ${formatLocalTime(m.moonset)}`;
+  } else if (m.moonrise) {
+    text += ` · rises ${formatLocalTime(m.moonrise)}`;
+  }
+  $('#moon-text').textContent = text;
+  $('#moon-chip').title = `${m.phaseName} (${pct}% illuminated)\n` +
+    `Moonrise: ${formatLocalTime(m.moonrise)}\nMoonset: ${formatLocalTime(m.moonset)}\n` +
+    `Sunset: ${formatLocalTime(m.sunset)}\nSunrise: ${formatLocalTime(m.sunrise)}`;
+}
+
+// ─── Auto-Select Scan ────────────────────────────────────────────────────
+async function autoSelectScan() {
+  if (userLat == null || userLng == null) return;
+  if (!availableScans.length) return;
+  // Don't override an explicit user pick
+  if ($('#input-scan-pick').value && selectedScanData) return;
+
+  // Find the closest scan whose coverage circle contains the user
+  let best = null;
+  let bestDist = Infinity;
+  for (const scan of availableScans) {
+    const d = haversineDistance(userLat, userLng, scan.centerLat, scan.centerLng);
+    if (d <= scan.radiusKm && d < bestDist) {
+      bestDist = d;
+      best = scan;
+    }
+  }
+  if (!best) return;
+
+  const select = $('#input-scan-pick');
+  if (select.value === best.filename) return; // already selected
+  select.value = best.filename;
+  try {
+    const resp = await fetch(`/data/${encodeURIComponent(best.filename)}`);
+    if (resp.ok) {
+      selectedScanData = await resp.json();
+      showToast(`Auto-selected scan: ${best.filename}`);
+    }
+  } catch { /* ignore */ }
 }
 
 // ─── Panel Management ────────────────────────────────────────────────────
@@ -184,6 +308,9 @@ function geolocate() {
           iconAnchor: [8, 8]
         })
       }).addTo(map).bindPopup('📍 Your Location');
+
+      updateMoonChip();
+      autoSelectScan();
     },
     (err) => {
       alert(`Geolocation error: ${err.message}`);
@@ -224,6 +351,11 @@ async function startSearch() {
   const maxResults = parseInt($('#input-max-results').value);
   const dataSource = $('input[name="data-source"]:checked').value;
   const gridStepKm = parseInt($('input[name="grid-step"]:checked')?.value || '5');
+  const minElevationM = parseInt($('#input-min-elev').value) || 0;
+  const enrichWeather = $('#opt-weather').checked;
+  const enrichDriving = $('#opt-driving').checked;
+
+  updateMoonChip();
 
   if (dataSource === 'precomputed' && !scanFileData && !selectedScanData) {
     alert('Please pick or upload a scan data file, or switch to "Live API" mode.');
@@ -250,6 +382,9 @@ async function startSearch() {
       scanFile: scanFileData,
       scanData: selectedScanData,
       gridStepKm,
+      minElevationM,
+      enrichWeather,
+      enrichDriving,
       signal: currentAbortController.signal,
       onProgress: (done, total, text) => {
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -340,6 +475,18 @@ function renderResults({ sites, stats }) {
       window.open(`https://www.google.com/maps/@${lat},${lng},15z/data=!3m1!1e1`, '_blank');
     });
   });
+
+  document.querySelectorAll('#results-list .btn-share').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index);
+      const site = sites[idx];
+      const url = siteShareUrl(site);
+      const ok = await copyToClipboard(url);
+      showToast(ok ? '🔗 Share link copied!' : '🔗 Copy failed — link shown in console');
+      if (!ok) console.log('Share URL:', url);
+    });
+  });
 }
 
 function renderSiteCard(site, index) {
@@ -362,6 +509,21 @@ function renderSiteCard(site, index) {
     ? '<div class="amenity-tag" style="color:var(--accent-warning)">⚠️ No nearby facilities — may be hard to reach</div>'
     : '';
 
+  // Meta row: elevation + drive time
+  const metaParts = [];
+  if (site.elevationM != null) {
+    metaParts.push(`<span class="card-meta-item">⛰️ <strong>${Math.round(site.elevationM)} m</strong></span>`);
+  }
+  if (site.driving) {
+    metaParts.push(`<span class="card-meta-item">🚗 <strong>${formatDriveTime(site.driving.durationSec)}</strong> drive · ${Math.round(site.driving.distanceKm)} km</span>`);
+  }
+  const metaHtml = metaParts.length
+    ? `<div class="card-meta">${metaParts.join('')}</div>`
+    : '';
+
+  // Weather forecast strip
+  const forecastHtml = renderForecast(site.forecast);
+
   return `
     <div class="result-card" data-index="${index}" data-lat="${site.lat}" data-lng="${site.lng}">
       <div class="card-header">
@@ -372,6 +534,8 @@ function renderSiteCard(site, index) {
         <span class="card-distance">${formatDistance(site.distance)} ${site.direction}</span>
       </div>
       <div class="card-coords">${site.lat.toFixed(4)}°, ${site.lng.toFixed(4)}°</div>
+      ${metaHtml}
+      ${forecastHtml}
       <div class="card-amenities">
         ${amenitiesHtml}
         ${noFacilitiesWarning}
@@ -386,6 +550,7 @@ function renderSiteCard(site, index) {
       <div class="card-actions">
         <button class="card-btn btn-navigate" data-lat="${site.lat}" data-lng="${site.lng}">🧭 Navigate</button>
         <button class="card-btn btn-satellite" data-lat="${site.lat}" data-lng="${site.lng}">🛰️ Satellite</button>
+        <button class="card-btn btn-share" data-index="${index}">🔗 Share</button>
         <button class="card-btn btn-save ${isSaved ? 'saved' : ''}" data-index="${index}">
           ${isSaved ? '⭐ Saved' : '☆ Save'}
         </button>
@@ -394,9 +559,30 @@ function renderSiteCard(site, index) {
   `;
 }
 
+function renderForecast(nights) {
+  if (!nights || nights.length === 0) return '';
+  const best = bestNight(nights);
+  const cells = nights.map(n => {
+    const cc = n.cloudCover;
+    const tone = cc == null ? '' : cc < 30 ? 'fc-good' : cc < 70 ? 'fc-ok' : 'fc-bad';
+    const dayLabel = new Date(n.date + 'T12:00:00').toLocaleDateString([], { weekday: 'short' });
+    const isBest = best && n.date === best.date && nights.length > 1;
+    return `
+      <div class="forecast-night ${isBest ? 'fn-best' : ''}" title="${escapeHtml(n.date)} · ${cc ?? '—'}% cloud · ${n.precipProb ?? 0}% precip">
+        <div class="fn-day">${escapeHtml(dayLabel)}</div>
+        <div class="fn-cloud ${tone}">${cc == null ? '—' : cc + '%'}</div>
+        <div>${n.precipProb != null && n.precipProb > 20 ? '💧' + n.precipProb + '%' : '☁️'}</div>
+      </div>
+    `;
+  }).join('');
+  return `<div class="card-forecast" title="7-night cloud-cover forecast — best night highlighted">${cells}</div>`;
+}
+
 // ─── Map Markers ─────────────────────────────────────────────────────────
 function renderMapMarkers({ sites }) {
   markersGroup.clearLayers();
+  siteMarkers = [];
+  activeSiteIndex = null;
 
   // Search radius circle
   if (searchCircle) map.removeLayer(searchCircle);
@@ -420,6 +606,10 @@ function renderMapMarkers({ sites }) {
       fillOpacity: 0.7,
       weight: 2,
     }).addTo(markersGroup);
+    siteMarkers[index] = marker;
+
+    // Clicking the marker should also activate the matching card
+    marker.on('click', () => highlightSite(index, { fromMarker: true }));
 
     marker.bindPopup(`
       <div class="popup-title">Dark Sky Site #${index + 1}</div>
@@ -471,17 +661,58 @@ function bortleColor(bortle) {
   return colors[bortle] || '#818cf8';
 }
 
-function highlightSite(index) {
+function highlightSite(index, { fromMarker = false } = {}) {
   if (!currentResults) return;
   const site = currentResults.sites[index];
+  if (!site) return;
 
-  // Scroll card into view
+  // 1. Card state
   const card = document.querySelector(`.result-card[data-index="${index}"]`);
   document.querySelectorAll('.result-card').forEach(c => c.classList.remove('active'));
   card?.classList.add('active');
+  if (fromMarker) card?.scrollIntoView({ behavior: 'smooth', block: 'center' });
 
-  // Pan map to site
-  map.setView([site.lat, site.lng], 12);
+  // 2. Reset previously-active marker, emphasize the new one
+  if (activeSiteIndex != null && siteMarkers[activeSiteIndex]) {
+    const prev = siteMarkers[activeSiteIndex];
+    const prevColor = bortleColor(currentResults.sites[activeSiteIndex].bortle);
+    prev.setStyle({ radius: 8, weight: 2, color: prevColor, fillOpacity: 0.7 });
+  }
+  const marker = siteMarkers[index];
+  if (marker) {
+    marker.setStyle({
+      radius: 14,
+      weight: 4,
+      color: '#a5b4fc',
+      fillOpacity: 0.9,
+    });
+    marker.bringToFront();
+
+    // Pulse ring — short-lived overlay so the eye catches the spot
+    const pulse = L.circleMarker([site.lat, site.lng], {
+      radius: 18,
+      color: '#a5b4fc',
+      fillColor: '#a5b4fc',
+      fillOpacity: 0.25,
+      weight: 2,
+    }).addTo(markersGroup);
+    let r = 18;
+    const tick = setInterval(() => {
+      r += 4;
+      pulse.setRadius(r);
+      pulse.setStyle({ fillOpacity: Math.max(0, 0.25 - (r - 18) / 80) });
+      if (r > 50) {
+        clearInterval(tick);
+        markersGroup.removeLayer(pulse);
+      }
+    }, 50);
+  }
+  activeSiteIndex = index;
+
+  // 3. Open the popup and pan map
+  if (marker && !fromMarker) marker.openPopup();
+  // Use panTo (not setView) so we keep the user's zoom level
+  map.panTo([site.lat, site.lng], { animate: true });
 }
 
 // ─── Favorites ───────────────────────────────────────────────────────────
@@ -499,6 +730,8 @@ function toggleFavorite(site, btn) {
       bortle: site.bortle,
       distance: site.distance,
       direction: site.direction,
+      elevationM: site.elevationM ?? null,
+      driving: site.driving || null,
       pois: site.pois.slice(0, 3), // Save top 3 POIs
       savedAt: new Date().toISOString(),
     });
@@ -517,7 +750,17 @@ function renderFavorites() {
 
   $('#favorites-empty').classList.add('hidden');
 
-  const html = favorites.map((fav, index) => `
+  const html = favorites.map((fav, index) => {
+    const metaParts = [];
+    if (fav.elevationM != null) {
+      metaParts.push(`<span class="card-meta-item">⛰️ <strong>${Math.round(fav.elevationM)} m</strong></span>`);
+    }
+    if (fav.driving) {
+      metaParts.push(`<span class="card-meta-item">🚗 <strong>${formatDriveTime(fav.driving.durationSec)}</strong></span>`);
+    }
+    const metaHtml = metaParts.length ? `<div class="card-meta">${metaParts.join('')}</div>` : '';
+
+    return `
     <div class="result-card" data-lat="${fav.lat}" data-lng="${fav.lng}">
       <div class="card-header">
         <div class="card-sqm">
@@ -527,6 +770,7 @@ function renderFavorites() {
         <span class="card-distance">${fav.distance ? formatDistance(fav.distance) : ''} ${fav.direction || ''}</span>
       </div>
       <div class="card-coords">${fav.lat.toFixed(4)}°, ${fav.lng.toFixed(4)}°</div>
+      ${metaHtml}
       ${fav.pois?.length > 0 ? `
         <div class="card-pois">
           ${fav.pois.map(poi => `<div class="poi-item"><span class="poi-name">${escapeHtml(poi.name)}</span></div>`).join('')}
@@ -534,10 +778,12 @@ function renderFavorites() {
       ` : ''}
       <div class="card-actions">
         <button class="card-btn btn-navigate" data-lat="${fav.lat}" data-lng="${fav.lng}">🧭 Navigate</button>
+        <button class="card-btn btn-share" data-fav-index="${index}">🔗 Share</button>
         <button class="card-btn btn-delete" data-fav-index="${index}">🗑️ Remove</button>
       </div>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   $('#favorites-list').innerHTML = html;
 
@@ -559,6 +805,18 @@ function renderFavorites() {
       const lat = btn.dataset.lat;
       const lng = btn.dataset.lng;
       window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank', 'noopener,noreferrer');
+    });
+  });
+
+  // Share handlers (favorites)
+  document.querySelectorAll('#favorites-list .btn-share').forEach(btn => {
+    btn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.favIndex);
+      const url = siteShareUrl(favorites[idx]);
+      const ok = await copyToClipboard(url);
+      showToast(ok ? '🔗 Share link copied!' : '🔗 Copy failed — link shown in console');
+      if (!ok) console.log('Share URL:', url);
     });
   });
 
@@ -597,7 +855,33 @@ async function loadScanIndex() {
     }).join('');
 }
 
+// ─── Shared Site (URL hash) ──────────────────────────────────────────────
+function handleSharedSiteHash() {
+  const shared = parseSharedSite();
+  if (!shared) return;
+  userLat = userLat ?? shared.lat;
+  userLng = userLng ?? shared.lng;
+  $('#input-location').value = `${shared.lat.toFixed(4)}, ${shared.lng.toFixed(4)}`;
+  map.setView([shared.lat, shared.lng], 11);
+
+  const sqmLabel = shared.sqm != null ? `SQM ${shared.sqm.toFixed(1)} · Bortle ${sqmToBortle(shared.sqm)}` : '';
+  L.marker([shared.lat, shared.lng], {
+    icon: L.divIcon({
+      className: 'shared-marker',
+      html: '<div style="font-size:24px;filter:drop-shadow(0 0 6px rgba(129,140,248,0.8));">🔭</div>',
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    }),
+  }).addTo(map).bindPopup(`<div class="popup-title">🔗 Shared Dark Site</div>${sqmLabel ? `<div class="popup-sqm">${sqmLabel}</div>` : ''}<a class="popup-link" href="https://www.google.com/maps/dir/?api=1&destination=${shared.lat},${shared.lng}&travelmode=driving" target="_blank" rel="noopener">🧭 Navigate</a>`).openPopup();
+  updateMoonChip();
+}
+
 // ─── Initialize ──────────────────────────────────────────────────────────
 initMap();
 initUI();
-loadScanIndex();
+updateMoonChip();
+loadScanIndex().then(() => {
+  // Both `handleSharedSiteHash` and `autoSelectScan` may depend on the scan list
+  handleSharedSiteHash();
+  autoSelectScan();
+});
