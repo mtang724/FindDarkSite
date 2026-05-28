@@ -18,6 +18,9 @@ config.js
 # Scan data (can be large)
 scanner/*.json
 
+# VIIRS raster cache + session cookies (multi-GB / secrets, never committed)
+scanner/viirs/cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
