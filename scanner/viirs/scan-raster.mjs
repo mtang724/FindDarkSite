@@ -8,11 +8,18 @@ import path from 'node:path';
 import { loadCache, sampleRadiance } from './raster-cache.mjs';
 import { generateBboxGridPoints } from './grid.mjs';
 import { writeScan } from './scan-store.mjs';
+import { brightnessToSqm } from './convert.mjs';
 import { generateGridPoints, radianceToSqm, sqmToBortle } from '../../src/utils.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CACHE_DIR = path.join(__dirname, 'cache');
 const PUBLIC_DATA = path.join(__dirname, '..', '..', 'public', 'data');
+
+// Per-source config: which cache to read and how to turn the sampled value into SQM.
+const SOURCES = {
+  viirs: { base: 'viirs_conus_2023', toSqm: radianceToSqm, valueKey: 'radiance', suffix: '' },
+  worldatlas: { base: 'worldatlas_conus_2015', toSqm: brightnessToSqm, valueKey: 'brightness', suffix: '_worldatlas' },
+};
 
 function parseArgs(argv) {
   const a = {};
@@ -25,14 +32,17 @@ function parseArgs(argv) {
 
 function main() {
   const a = parseArgs(process.argv);
+  const src = SOURCES[a.source ?? 'viirs'];
+  if (!src) { console.error('--source must be viirs or worldatlas'); process.exit(1); }
+
   let header, data;
   try {
     ({ header, data } = loadCache(
-      path.join(CACHE_DIR, 'viirs_conus_2023.json'),
-      path.join(CACHE_DIR, 'viirs_conus_2023.bin'),
+      path.join(CACHE_DIR, src.base + '.json'),
+      path.join(CACHE_DIR, src.base + '.bin'),
     ));
   } catch {
-    console.error('Cache missing. Build it first:\n  node scanner/viirs/browser-login.mjs\n  (download the .tif.gz, gunzip into scanner/viirs/cache/)\n  node --max-old-space-size=2048 scanner/viirs/build-cache.mjs');
+    console.error(`Cache "${src.base}" missing. Build it first (see scanner/viirs/build-cache.mjs).`);
     process.exit(1);
   }
 
@@ -43,20 +53,20 @@ function main() {
     const [minLng, minLat, maxLng, maxLat] = a.bbox.split(',').map(Number);
     points = generateBboxGridPoints(minLng, minLat, maxLng, maxLat, step);
     metadata = { bbox: [minLng, minLat, maxLng, maxLat], stepKm: step, layer: header.layer, source: header.source, startedAt: new Date().toISOString() };
-    defaultName = `scan_bbox_${minLng}_${minLat}_${maxLng}_${maxLat}_${step}km.json`;
+    defaultName = `scan_bbox_${minLng}_${minLat}_${maxLng}_${maxLat}_${step}km${src.suffix}.json`;
   } else {
     const lat = parseFloat(a.lat), lng = parseFloat(a.lng), radius = parseFloat(a.radius ?? '200');
     if (Number.isNaN(lat) || Number.isNaN(lng)) { console.error('Need --lat and --lng (or --bbox)'); process.exit(1); }
     points = generateGridPoints(lat, lng, radius, step);
     metadata = { centerLat: lat, centerLng: lng, radiusKm: radius, stepKm: step, layer: header.layer, source: header.source, startedAt: new Date().toISOString() };
-    defaultName = `scan_${lat}_${lng}_${radius.toFixed(0)}km.json`;
+    defaultName = `scan_${lat}_${lng}_${radius.toFixed(0)}km${src.suffix}.json`;
   }
 
   const results = points.map(({ lat, lng }) => {
-    const radiance = sampleRadiance(header, data, lat, lng);
-    if (radiance == null) return { lat, lng, radiance: -1, sqm: -1, bortle: -1 };
-    const sqm = radianceToSqm(radiance);
-    return { lat, lng, radiance, sqm, bortle: sqmToBortle(sqm) };
+    const value = sampleRadiance(header, data, lat, lng);
+    if (value == null) return { lat, lng, [src.valueKey]: -1, sqm: -1, bortle: -1 };
+    const sqm = src.toSqm(value);
+    return { lat, lng, [src.valueKey]: value, sqm, bortle: sqmToBortle(sqm) };
   });
 
   const outputFile = a.output || path.join(PUBLIC_DATA, defaultName);

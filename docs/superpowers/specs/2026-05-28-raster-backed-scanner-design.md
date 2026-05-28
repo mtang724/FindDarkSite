@@ -182,3 +182,30 @@ Note: the synthetic `pixel` field is dropped (the app never reads it; it used on
 2. **National file resolution:** **5 km** for now. A CONUS `--bbox` at 5 km ≈ 306 k land points
    ≈ ~40 MB JSON — heavy in-browser but loadable; acceptable for now. A coarser overview can be
    added later if load time becomes a problem.
+
+## Addendum (2026-05-28): World Atlas 2015 source for Bortle 1/2/3
+
+**Why:** VIIRS measures *upward emitted* radiance and the `average_masked` product floors at its
+~0.25 nW detection limit, so all truly-dark skies collapse to Bortle 1 (no 2/3). Distinguishing the
+darkest classes needs *modeled zenith sky brightness*, which is what the World Atlas (Falchi et al.
+2016) provides — VIIRS DNB propagated through an atmospheric radiative-transfer model and calibrated
+to ground SQM meters. This is the same product lightpollutionmap.info uses for its dark-end Bortle.
+
+**Source:** `World_Atlas_2015.tif` from GFZ Data Services (doi 10.5880/GFZ.1.4.2016.001) — GeoTIFF,
+30 arcsec (~1 km), EPSG:4326, **artificial** zenith brightness in **mcd/m²** (natural excluded),
+noData ≈ −3.4e38. Free download, no auth.
+
+**Conversion** (`scanner/viirs/convert.mjs` `brightnessToSqm`): add the natural background and convert
+in magnitudes, using the same zero-point as `radianceToSqm` so "no light" → exactly 22.0:
+`SQM = 22.0 − 2.5·log10(1 + artificial_mcd / 0.174)`, clamped [16,22]. Verified: NYC→Bortle 9,
+San Jose→8, rural Kansas→2, Great Basin NV→1. National 5 km distribution becomes a smooth gradient
+(B1 41% / B2 23% / B3 12% / B4 20% / …) vs the VIIRS cliff (B1 85%, no B2/B3).
+
+**Integration:** `build-cache.mjs --in <tif> --out <basename>` is now source-agnostic; `scan-raster.mjs
+--source viirs|worldatlas` picks the cache + converter. `sampleRadiance` noData handling generalized
+(exact-equality + negatives → 0) to tolerate the World Atlas float-min noData.
+
+**License (IMPORTANT):** The World Atlas README prohibits redistribution and commercial use
+(contact Falchi for permissions). Therefore World-Atlas-derived scans are **gitignored**
+(`public/data/*worldatlas*.json`) and kept **local only** — do not commit/push them. Only our own
+code is committed. VIIRS-derived scans remain freely distributable.

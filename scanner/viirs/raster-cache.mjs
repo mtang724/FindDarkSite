@@ -19,7 +19,8 @@ export function sampleRadiance(header, data, lat, lng) {
   if (col < 0) col = 0;
   if (row < 0) row = 0;
   const v = data[row * header.width + col];
-  if (v == null || Number.isNaN(v) || v <= header.noData || v < 0) return 0;
+  if (v == null || Number.isNaN(v) || v < 0) return 0;
+  if (header.noData != null && v === header.noData) return 0;
   return v;
 }
 

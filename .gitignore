@@ -21,6 +21,9 @@ scanner/*.json
 # VIIRS raster cache + session cookies (multi-GB / secrets, never committed)
 scanner/viirs/cache/
 
+# World Atlas 2015 derived scans — Falchi license prohibits redistribution; keep local only
+public/data/*worldatlas*.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
