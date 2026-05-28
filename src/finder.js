@@ -7,7 +7,7 @@
 
 import { haversineDistance, bearing, bearingToDirection, sqmToBortle, delay } from './utils.js';
 import { liveGridScan, loadScanData } from './lightPollution.js';
-import { searchNearbyPOIs, searchRIDBCampgrounds } from './poiSearch.js';
+import { searchNearbyPOIsBatch, searchRIDBCampgrounds } from './poiSearch.js';
 
 /**
  * @typedef {Object} FinderOptions
@@ -16,11 +16,11 @@ import { searchNearbyPOIs, searchRIDBCampgrounds } from './poiSearch.js';
  * @property {number} radiusKm
  * @property {number} minSqm
  * @property {number} maxResults
- * @property {string} googleApiKey
- * @property {string} ridbApiKey
+ * @property {string} [ridbApiKey] - Recreation.gov RIDB key (optional)
  * @property {number} poiRadiusM - POI search radius per seed (default 8000)
  * @property {'precomputed'|'live'} dataSource
- * @property {File} [scanFile] - pre-computed scan JSON file
+ * @property {File} [scanFile] - pre-computed scan JSON file (file upload)
+ * @property {Object} [scanData] - pre-parsed scan data (dropdown fetch)
  * @property {number} [gridStepKm] - for live scan
  * @property {Function} onProgress
  * @property {Function} onStageChange
@@ -34,21 +34,26 @@ import { searchNearbyPOIs, searchRIDBCampgrounds } from './poiSearch.js';
 export async function findDarkSites(options) {
     const {
         centerLat, centerLng, radiusKm, minSqm, maxResults = 25,
-        googleApiKey, ridbApiKey,
+        ridbApiKey,
         poiRadiusM = 8000,
         dataSource = 'precomputed',
-        scanFile, gridStepKm = 5,
+        scanFile, scanData, gridStepKm = 5,
+        signal,
         onProgress, onStageChange
     } = options;
+
+    const throwIfAborted = () => {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    };
 
     // ─── Stage 1: Get seed points ──────────────────────────────────────────
     onStageChange?.('scanning', 'Finding dark sky areas...');
 
     let allPoints;
 
-    if (dataSource === 'precomputed' && scanFile) {
+    if (dataSource === 'precomputed' && (scanFile || scanData)) {
         onProgress?.(0, 1, 'Loading scan data...');
-        const data = await loadScanData(scanFile);
+        const data = scanData || await loadScanData(scanFile);
         allPoints = data.results;
         onProgress?.(1, 1, `Loaded ${allPoints.length} points`);
     } else {
@@ -56,11 +61,14 @@ export async function findDarkSites(options) {
         allPoints = await liveGridScan({
             centerLat, centerLng, radiusKm,
             stepKm: gridStepKm,
+            signal,
             onProgress: (done, total, result) => {
                 onProgress?.(done, total, `Scanning: ${done}/${total} points`);
             }
         });
     }
+
+    throwIfAborted();
 
     // Filter by SQM threshold and distance
     const seeds = allPoints
@@ -78,35 +86,41 @@ export async function findDarkSites(options) {
     onStageChange?.('poi-search', `Found ${seeds.length} dark areas, searching for nearby facilities...`);
 
     // ─── Stage 2: POI search for reachability ──────────────────────────────
-    // We don't need to search POIs for ALL seeds — group nearby seeds and search once
+    // We don't need to search POIs for ALL seeds — group nearby seeds first,
+    // then make ONE Overpass query covering every cluster center at once.
     const clusteredSeeds = clusterSeeds(seeds, 5); // cluster within 5km
+    const candidateSeeds = clusteredSeeds.slice(0, maxResults * 2);
+
+    onProgress?.(0, 1, `Fetching facilities for ${candidateSeeds.length} dark areas...`);
+    const overpassPOIs = candidateSeeds.length
+        ? await searchNearbyPOIsBatch(candidateSeeds.map(s => ({ lat: s.lat, lng: s.lng })), poiRadiusM, signal)
+        : [];
+    onProgress?.(1, 1, `Got ${overpassPOIs.length} OSM facilities`);
+    throwIfAborted();
+
+    const poiRadiusKm = poiRadiusM / 1000;
+    const useRidb = ridbApiKey && ridbApiKey !== 'YOUR_RIDB_API_KEY';
     const sites = [];
-    let poiSearchCount = 0;
 
-    for (let i = 0; i < clusteredSeeds.length && sites.length < maxResults * 2; i++) {
-        const seed = clusteredSeeds[i];
-        onProgress?.(i + 1, Math.min(clusteredSeeds.length, maxResults * 2),
-            `Checking facilities: ${i + 1}/${Math.min(clusteredSeeds.length, maxResults * 2)}`);
+    for (let i = 0; i < candidateSeeds.length; i++) {
+        throwIfAborted();
+        const seed = candidateSeeds[i];
+        onProgress?.(i + 1, candidateSeeds.length,
+            `Checking facilities: ${i + 1}/${candidateSeeds.length}`);
 
-        // Search Google Places
-        let pois = [];
-        if (googleApiKey && googleApiKey !== 'YOUR_GOOGLE_MAPS_API_KEY') {
-            pois = await searchNearbyPOIs(googleApiKey, seed.lat, seed.lng, poiRadiusM);
-            await delay(200); // rate limit
-        }
+        // Per-seed: filter the batched Overpass result to POIs within poiRadius of THIS seed
+        const localOsm = overpassPOIs.filter(p =>
+            haversineDistance(seed.lat, seed.lng, p.lat, p.lng) <= poiRadiusKm
+        );
 
-        // Search RIDB campgrounds
+        // RIDB still per-seed (it has its own radius parameter; calls are fast)
         let campgrounds = [];
-        if (ridbApiKey && ridbApiKey !== 'YOUR_RIDB_API_KEY') {
-            campgrounds = await searchRIDBCampgrounds(ridbApiKey, seed.lat, seed.lng, poiRadiusM / 1000);
+        if (useRidb) {
+            campgrounds = await searchRIDBCampgrounds(ridbApiKey, seed.lat, seed.lng, poiRadiusKm, signal);
             await delay(200);
         }
 
-        // Merge & deduplicate
-        const allPois = mergePOIs([...pois, ...campgrounds], seed.lat, seed.lng);
-
-        poiSearchCount++;
-
+        const allPois = mergePOIs([...localOsm, ...campgrounds], seed.lat, seed.lng);
         sites.push({
             ...seed,
             pois: allPois,
@@ -133,8 +147,8 @@ export async function findDarkSites(options) {
         sitesWithFacilities: finalSites.filter(s => s.hasNearbyFacilities).length,
         sitesWithoutFacilities: finalSites.filter(s => !s.hasNearbyFacilities).length,
         totalPOIs: finalSites.reduce((sum, s) => sum + s.pois.length, 0),
-        bestSqm: Math.max(...finalSites.map(s => s.sqm)),
-        bestBortle: Math.min(...finalSites.map(s => s.bortle)),
+        bestSqm: finalSites.length ? Math.max(...finalSites.map(s => s.sqm)) : null,
+        bestBortle: finalSites.length ? Math.min(...finalSites.map(s => s.bortle)) : null,
     };
 
     onStageChange?.('done', `Found ${finalSites.length} recommended sites!`);
@@ -143,27 +157,29 @@ export async function findDarkSites(options) {
 }
 
 /**
- * Cluster nearby seeds to avoid redundant POI searches
+ * Cluster nearby seeds to avoid redundant POI searches.
+ * Iterates from darkest seed downward; each cluster's representative is the
+ * darkest unused seed, and all other seeds within clusterRadiusKm are absorbed.
  */
 function clusterSeeds(seeds, clusterRadiusKm) {
+    const byDarkness = [...seeds].sort((a, b) => b.sqm - a.sqm);
     const clustered = [];
     const used = new Set();
 
-    for (const seed of seeds) {
-        if (used.has(`${seed.lat},${seed.lng}`)) continue;
+    for (const seed of byDarkness) {
+        const key = `${seed.lat},${seed.lng}`;
+        if (used.has(key)) continue;
 
-        // Mark all seeds within clusterRadiusKm as used
-        for (const other of seeds) {
+        for (const other of byDarkness) {
             if (haversineDistance(seed.lat, seed.lng, other.lat, other.lng) <= clusterRadiusKm) {
                 used.add(`${other.lat},${other.lng}`);
             }
         }
-
-        // Use seed with best SQM from cluster
         clustered.push(seed);
     }
 
-    return clustered;
+    // Preserve distance-ascending order for downstream POI work / progress UX
+    return clustered.sort((a, b) => a.distance - b.distance);
 }
 
 /**

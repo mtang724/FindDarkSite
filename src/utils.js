@@ -39,6 +39,17 @@ export function bearingToDirection(b) {
 }
 
 /**
+ * Convert lightpollutionmap.info WMS pixel intensity (0–255) to approximate
+ * VIIRS radiance (nW/cm²/sr). pixel ≤ 5 is treated as natural-dark (radiance 0).
+ * pixel 6 → 0.01 nW, pixel 250 → 100 nW on a log scale.
+ */
+export function pixelToRadiance(pixel) {
+    if (pixel <= 5) return 0;
+    const k = 4.0 / (250 - 6); // log10(100/0.01) / (250-6)
+    return Math.round(0.01 * Math.pow(10, k * (pixel - 6)) * 10000) / 10000;
+}
+
+/**
  * Convert VIIRS radiance (nW/cm²/sr) to SQM (mag/arcsec²)
  */
 export function radianceToSqm(radiance) {
@@ -124,4 +135,30 @@ export function formatDistance(km) {
  */
 export function delay(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+/**
+ * Escape untrusted text for safe inclusion in an HTML string (innerHTML / template literals)
+ */
+export function escapeHtml(value) {
+    if (value == null) return '';
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
+
+/**
+ * Return a URL only if it parses and uses http(s); otherwise return '' so callers
+ * can fall back. Prevents javascript:/data: URLs from sneaking into href attrs.
+ */
+export function safeHttpUrl(value) {
+    if (!value) return '';
+    try {
+        const u = new URL(value);
+        if (u.protocol === 'http:' || u.protocol === 'https:') return u.toString();
+    } catch { /* fall through */ }
+    return '';
 }

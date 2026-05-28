@@ -21,12 +21,18 @@ Requirements: Python 3.6+ (no external dependencies)
 import argparse
 import json
 import math
+import os
 import signal
 import sys
 import time
 import urllib.request
 import urllib.error
 from datetime import datetime, timezone
+
+# Where the web app looks for pre-computed scans (relative to repo root).
+REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PUBLIC_DATA_DIR = os.path.join(REPO_ROOT, "public", "data")
+INDEX_FILE = os.path.join(PUBLIC_DATA_DIR, "index.json")
 
 # ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -85,11 +91,13 @@ def generate_grid_points(center_lat, center_lng, radius_km, step_km):
 # ─── Light Pollution API ─────────────────────────────────────────────────────
 
 # The lightpollutionmap.info GeoServer WMS returns grayscale pixel values (0-255).
-# This maps pixel brightness to approximate VIIRS radiance (nW/cm²/sr) using
-# a logarithmic scale derived from the site's rendering:
-#   pixel ~5   => ~0.17 nW  (natural sky background)
-#   pixel ~128 => ~1.5 nW   (rural/suburban transition)
-#   pixel ~250 => ~50+ nW   (bright city)
+# This maps pixel brightness to approximate VIIRS radiance (nW/cm²/sr) using a
+# logarithmic scale fitted so pixel 6 -> 0.01 nW and pixel 250 -> 100 nW:
+#   pixel <=5  => 0 nW     (no artificial light — Bortle 1-2)
+#   pixel  50  => ~0.05 nW (rural — Bortle 3)
+#   pixel 128  => ~1.0 nW  (suburban — Bortle 5)
+#   pixel 250  => ~100 nW  (city — Bortle 9)
+# Note: this is an approximate fit to the site's rendering, not VIIRS truth.
 
 def pixel_to_radiance(pixel):
     """Convert WMS pixel intensity (0-255) to approximate radiance (nW/cm²/sr)."""
@@ -152,10 +160,18 @@ def query_radiance(lat, lng, layer=DEFAULT_LAYER):
             return {"radiance": -1, "sqm": -1, "bortle": -1, "raw": "no features"}
 
         props = features[0].get("properties", {})
-        pixel = props.get("RED_BAND", props.get("GRAY_INDEX", 0))
-
-        if pixel <= 0:
-            return {"radiance": -1, "sqm": -1, "bortle": -1, "pixel": pixel}
+        # Distinguish "missing key" (no data) from a legitimate pixel value of 0
+        raw_pixel = props.get("RED_BAND")
+        if raw_pixel is None:
+            raw_pixel = props.get("GRAY_INDEX")
+        if raw_pixel is None:
+            return {"radiance": -1, "sqm": -1, "bortle": -1, "error": "no pixel"}
+        try:
+            pixel = float(raw_pixel)
+        except (TypeError, ValueError):
+            return {"radiance": -1, "sqm": -1, "bortle": -1, "error": "bad pixel"}
+        if pixel < 0:
+            return {"radiance": -1, "sqm": -1, "bortle": -1, "error": "bad pixel"}
 
         radiance = pixel_to_radiance(pixel)
         sqm = radiance_to_sqm(radiance)
@@ -197,7 +213,7 @@ def print_progress(done, total, start_time, last_result):
 
 
 def save_results(output_file, metadata, results):
-    """Save scan results to JSON file."""
+    """Save scan results to JSON file and refresh the public/data index."""
     data = {
         "metadata": dict(
             list(metadata.items()) + [
@@ -208,8 +224,42 @@ def save_results(output_file, metadata, results):
         ),
         "results": results,
     }
+    os.makedirs(os.path.dirname(output_file) or ".", exist_ok=True)
     with open(output_file, "w") as f:
         json.dump(data, f, indent=2)
+
+    # Refresh index.json only when writing into the web app's data dir
+    output_dir = os.path.dirname(os.path.abspath(output_file))
+    if os.path.abspath(output_dir) == os.path.abspath(PUBLIC_DATA_DIR):
+        rebuild_index(output_dir)
+
+
+def rebuild_index(data_dir):
+    """Scan a directory for scan_*.json files and write index.json next to them."""
+    scans = []
+    for name in sorted(os.listdir(data_dir)):
+        if name == "index.json" or not name.endswith(".json"):
+            continue
+        path = os.path.join(data_dir, name)
+        try:
+            with open(path) as f:
+                payload = json.load(f)
+            meta = payload.get("metadata", {})
+        except (OSError, ValueError):
+            continue
+        scans.append({
+            "filename": name,
+            "centerLat": meta.get("centerLat"),
+            "centerLng": meta.get("centerLng"),
+            "radiusKm": meta.get("radiusKm"),
+            "stepKm": meta.get("stepKm"),
+            "layer": meta.get("layer"),
+            "lastUpdated": meta.get("lastUpdated"),
+            "totalPoints": meta.get("totalPoints"),
+            "validPoints": meta.get("validPoints"),
+        })
+    with open(os.path.join(data_dir, "index.json"), "w") as f:
+        json.dump({"scans": scans}, f, indent=2)
 
 
 # ─── Main ────────────────────────────────────────────────────────────────────
@@ -275,7 +325,8 @@ Examples:
             "startedAt": datetime.now(timezone.utc).isoformat(),
         }
 
-        output_file = args.output or "scan_{}_{}_{:.0f}km.json".format(args.lat, args.lng, args.radius)
+        default_name = "scan_{}_{}_{:.0f}km.json".format(args.lat, args.lng, args.radius)
+        output_file = args.output or os.path.join(PUBLIC_DATA_DIR, default_name)
         all_points = generate_grid_points(args.lat, args.lng, args.radius, args.step)
         results = []
         start_index = 0
@@ -362,7 +413,11 @@ Examples:
                 bar = "#" * max(1, int(pct / 2))
                 print("   Bortle {}: {} {} ({:.1f}%)".format(b, bar, count, pct))
 
-    print("\nNext step: Copy {} to public/data/ in your FindDarkSite web app.".format(output_file))
+    if os.path.abspath(os.path.dirname(output_file)) == os.path.abspath(PUBLIC_DATA_DIR):
+        rel = os.path.relpath(output_file, REPO_ROOT)
+        print("\nReady to use in the web app — picker will list {}".format(rel))
+    else:
+        print("\nNext step: Copy {} to public/data/ in your FindDarkSite web app.".format(output_file))
 
 
 if __name__ == "__main__":

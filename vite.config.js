@@ -9,6 +9,12 @@ export default defineConfig({
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api\/ridb/, '/api/v1'),
             },
+            // Proxy lightpollutionmap.info GeoServer WMS for live scans
+            '/api/lp': {
+                target: 'https://www.lightpollutionmap.info',
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/api\/lp/, '/geoserver/gwc/service/wms'),
+            },
         },
     },
 });

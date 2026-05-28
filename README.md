@@ -6,10 +6,10 @@ Find the best stargazing locations near you. FindDarkSite scans for areas with l
 
 - **Real light pollution data** — Queries VIIRS 2023 satellite data from lightpollutionmap.info
 - **SQM & Bortle ratings** — Every site shows sky quality (mag/arcsec²) and Bortle class (1–9)
-- **Nearby POIs** — Finds campgrounds, parks, lodging & attractions via Google Places and Recreation.gov
+- **Nearby POIs** — Free, no-API-key search via OpenStreetMap (Overpass) + optional Recreation.gov campgrounds
 - **Interactive dark map** — Leaflet map with Bortle-colored markers on a dark theme
-- **Pre-computed scans** — Upload JSON scan files for instant results (no API wait)
-- **Live API scanning** — Scan any area in real-time from the browser
+- **Pre-computed scans** — Scanner publishes to `public/data/`; web app discovers them automatically
+- **Live API scanning** — Scan any area in real-time from the browser (cancellable)
 - **Favorites** — Save and revisit your best dark sky spots
 - **One-click navigation** — Links to Google Maps directions and satellite views
 
@@ -21,9 +21,9 @@ git clone <your-repo-url>
 cd FindDarkSite
 npm install
 
-# 2. Configure API keys
+# 2. (Optional) configure RIDB key for richer US campground data
 cp config.example.js config.js
-# Edit config.js with your keys (see API Keys section below)
+# Edit config.js — RIDB key is free, everything else works without keys
 
 # 3. Run the dev server
 npm run dev
@@ -33,27 +33,25 @@ Open http://localhost:5173 in your browser.
 
 ## API Keys
 
-Create `config.js` from `config.example.js` and add your keys:
-
 | Key | Required | Where to get it |
 |-----|----------|-----------------|
-| Google Maps API | For POI search | [Google Cloud Console](https://console.cloud.google.com/apis/credentials) — enable "Places API (New)" |
-| Recreation.gov RIDB | For federal campgrounds | [RIDB Registration](https://ridb.recreation.gov/docs) (free) |
+| OpenStreetMap Overpass | No key needed | Used automatically for POI search (campgrounds, parks, lodging, parking, attractions) |
+| Recreation.gov RIDB | Optional | [RIDB Registration](https://ridb.recreation.gov/docs) — adds federal campground details |
 
-> **Note:** The light pollution scanner works without any API keys.
+> **No paid APIs.** POI search now uses the free Overpass API. The light pollution scanner needs no keys either.
 
 ## Grid Scanner
 
-Pre-compute light pollution data for a region. The scanner queries VIIRS satellite data and saves results to a JSON file you can load in the web app.
+Pre-compute light pollution data for a region. The scanner queries VIIRS satellite data and **writes directly to `public/data/`** — when you reload the web app, the new scan appears in the "Pre-computed Scan" dropdown automatically. An `index.json` next to your scan files is regenerated on every save.
 
 ### Python (recommended — zero dependencies)
 
 ```bash
-# Scan 300km around San Jose at 5km resolution
+# Scan 300km around San Jose at 5km resolution → public/data/scan_37.37_-121.88_300km.json
 python3 scanner/scan_grid.py --lat 37.37 --lng -121.88 --radius 300 --step 5
 
 # Resume an interrupted scan
-python3 scanner/scan_grid.py --resume scan_37.37_-121.88_300km.json
+python3 scanner/scan_grid.py --resume public/data/scan_37.37_-121.88_300km.json
 ```
 
 ### Node.js
@@ -65,6 +63,8 @@ node scanner/scan-grid.cjs --lat 37.37 --lng -121.88 --radius 300 --step 5
 # ESM version (requires Node 14+)
 node scanner/scan-grid.js --lat 37.37 --lng -121.88 --radius 300 --step 5
 ```
+
+Pass `--output` to write somewhere else; without it, scans land in `public/data/` automatically.
 
 ### Scanner Options
 
@@ -87,7 +87,7 @@ node scanner/scan-grid.js --lat 37.37 --lng -121.88 --radius 300 --step 5
 | 200 km | 5 km | ~5,000 | ~42 min |
 | 300 km | 5 km | ~11,300 | ~95 min |
 
-After scanning, copy the JSON file to `public/data/` and select it in the web app's "Pre-computed Scan" mode.
+Reload the web app — your scan appears in the "Pre-computed Scan" dropdown. No copy step needed.
 
 ## Project Structure
 
@@ -125,16 +125,15 @@ npm run build
 ### Security Notes
 
 - **Never commit `config.js`** — it's in `.gitignore`
-- **Restrict your Google Maps API key** by HTTP referrer in the [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
-- **Set a billing budget** on Google Cloud to prevent surprise charges
-- For production, consider a backend proxy to keep API keys server-side
+- For production, consider a backend proxy if you don't want the RIDB key shipped in client JS
+- The Overpass and lightpollutionmap.info endpoints don't need keys; in production both will hit upstream directly (no Vite proxy), so be aware of CORS / browser limits
 
 ## Tech Stack
 
 - **Frontend:** Vanilla JavaScript + Vite
 - **Map:** Leaflet with CARTO Dark Matter tiles
-- **Data:** VIIRS 2023 satellite radiance via lightpollutionmap.info GeoServer WMS
-- **POIs:** Google Places API (New) + Recreation.gov RIDB API
+- **Data:** VIIRS 2023 satellite radiance via lightpollutionmap.info GeoServer WMS (proxied through Vite in dev)
+- **POIs:** Overpass API (OpenStreetMap) + optional Recreation.gov RIDB
 - **Caching:** IndexedDB via idb-keyval
 
 ## License

@@ -5,28 +5,35 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { findDarkSites } from './finder.js';
-import { haversineDistance, formatDistance, sqmToBortle, bortleDescription } from './utils.js';
+import { haversineDistance, formatDistance, sqmToBortle, bortleDescription, escapeHtml, safeHttpUrl } from './utils.js';
 import { categorizePOI } from './poiSearch.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
 let map, searchCircle, markersGroup;
 let currentResults = null;
-let scanFileData = null;
+let scanFileData = null;       // File from <input type="file"> fallback
+let selectedScanData = null;   // Parsed JSON from /data/<picked>.json dropdown
+let availableScans = [];       // Loaded from /data/index.json
 let userLat = null, userLng = null;
 let favorites = JSON.parse(localStorage.getItem('darksite-favorites') || '[]');
 let activePanel = 'search'; // 'search' | 'results' | 'favorites'
+let currentAbortController = null;
 
 // ─── Config (inline — user edits this or uses config.js) ─────────────────
 // Try to load from config.js, fallback to empty
 let CONFIG = {
-  GOOGLE_MAPS_API_KEY: '',
   RIDB_API_KEY: '',
 };
 
-// Try loading config dynamically
+// Try loading config dynamically. config.js is gitignored and may not exist —
+// import.meta.glob returns {} if it's missing, avoiding a hard build-time error.
 try {
-  const cfg = await import('../config.js').catch(() => null);
-  if (cfg?.CONFIG) CONFIG = { ...CONFIG, ...cfg.CONFIG };
+  const configModules = import.meta.glob('../config.js');
+  const loader = Object.values(configModules)[0];
+  if (loader) {
+    const cfg = await loader();
+    if (cfg?.CONFIG) CONFIG = { ...CONFIG, ...cfg.CONFIG };
+  }
 } catch (e) { /* no config file, that's ok */ }
 
 // ─── Initialize Map ──────────────────────────────────────────────────────
@@ -39,7 +46,7 @@ function initMap() {
   });
 
   // Dark tile layer
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  const dark = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19,
@@ -53,7 +60,7 @@ function initMap() {
 
   // Layer control
   L.control.layers({
-    'Dark': map._layers[Object.keys(map._layers)[0]],
+    'Dark': dark,
     'Satellite': satellite,
   }, {}, { position: 'topright' }).addTo(map);
 
@@ -93,11 +100,35 @@ function initUI() {
     });
   });
 
-  // File upload
+  // File upload (fallback when no scan in public/data/, or user has a custom one)
   $('#input-scan-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
       scanFileData = file;
+      // File upload takes precedence — clear any dropdown pick
+      selectedScanData = null;
+      $('#input-scan-pick').value = '';
+    }
+  });
+
+  // Scan picker dropdown
+  $('#input-scan-pick').addEventListener('change', async (e) => {
+    const filename = e.target.value;
+    if (!filename) {
+      selectedScanData = null;
+      return;
+    }
+    // Clear uploaded file so dropdown takes precedence
+    scanFileData = null;
+    $('#input-scan-file').value = '';
+    try {
+      const resp = await fetch(`/data/${encodeURIComponent(filename)}`);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      selectedScanData = await resp.json();
+    } catch (err) {
+      alert(`Failed to load scan: ${err.message}`);
+      e.target.value = '';
+      selectedScanData = null;
     }
   });
 
@@ -162,7 +193,16 @@ function geolocate() {
 }
 
 // ─── Search ──────────────────────────────────────────────────────────────
+const SEARCH_BTN_IDLE_HTML = '<span class="btn-icon">🔭</span> Find Dark Sites';
+const SEARCH_BTN_CANCEL_HTML = '<span class="btn-icon">⏹</span> Cancel Scan';
+
 async function startSearch() {
+  // If a scan is in progress, treat this click as a cancel
+  if (currentAbortController) {
+    currentAbortController.abort();
+    return;
+  }
+
   // Parse location
   const locInput = $('#input-location').value.trim();
   if (!locInput) {
@@ -185,17 +225,18 @@ async function startSearch() {
   const dataSource = $('input[name="data-source"]:checked').value;
   const gridStepKm = parseInt($('input[name="grid-step"]:checked')?.value || '5');
 
-  if (dataSource === 'precomputed' && !scanFileData) {
-    alert('Please upload a scan data JSON file, or switch to "Live API" mode.');
+  if (dataSource === 'precomputed' && !scanFileData && !selectedScanData) {
+    alert('Please pick or upload a scan data file, or switch to "Live API" mode.');
     return;
   }
 
-  // UI state
+  // UI state — scanning
   const searchBtn = $('#btn-search');
-  searchBtn.disabled = true;
   searchBtn.classList.add('scanning');
-  searchBtn.innerHTML = '<span class="btn-icon">🔭</span> Scanning...';
+  searchBtn.innerHTML = SEARCH_BTN_CANCEL_HTML;
   $('#progress-container').classList.remove('hidden');
+
+  currentAbortController = new AbortController();
 
   try {
     const result = await findDarkSites({
@@ -204,13 +245,14 @@ async function startSearch() {
       radiusKm,
       minSqm,
       maxResults,
-      googleApiKey: CONFIG.GOOGLE_MAPS_API_KEY,
       ridbApiKey: CONFIG.RIDB_API_KEY,
       dataSource,
       scanFile: scanFileData,
+      scanData: selectedScanData,
       gridStepKm,
+      signal: currentAbortController.signal,
       onProgress: (done, total, text) => {
-        const pct = Math.round((done / total) * 100);
+        const pct = total > 0 ? Math.round((done / total) * 100) : 0;
         $('#progress-fill').style.width = `${pct}%`;
         $('#progress-text').textContent = text;
       },
@@ -227,12 +269,16 @@ async function startSearch() {
     renderMapMarkers(result);
     showPanel('results');
   } catch (err) {
-    console.error('Search error:', err);
-    alert(`Search failed: ${err.message}`);
+    if (err.name === 'AbortError') {
+      $('#progress-text').textContent = 'Scan cancelled.';
+    } else {
+      console.error('Search error:', err);
+      alert(`Search failed: ${err.message}`);
+    }
   } finally {
-    searchBtn.disabled = false;
+    currentAbortController = null;
     searchBtn.classList.remove('scanning');
-    searchBtn.innerHTML = '<span class="btn-icon">🔭</span> Find Dark Sites';
+    searchBtn.innerHTML = SEARCH_BTN_IDLE_HTML;
     $('#progress-container').classList.add('hidden');
   }
 }
@@ -302,7 +348,7 @@ function renderSiteCard(site, index) {
     const cat = categorizePOI(poi.types);
     return `
       <div class="poi-item">
-        <span class="poi-name">${cat.icon} ${poi.name}</span>
+        <span class="poi-name">${cat.icon} ${escapeHtml(poi.name)}</span>
         <span class="poi-meta">${formatDistance(poi.distanceFromSeed)}</span>
       </div>
     `;
@@ -397,12 +443,13 @@ function renderMapMarkers({ sites }) {
         })
       }).addTo(markersGroup);
 
+      const reservationHref = safeHttpUrl(poi.reservationUrl);
       poiMarker.bindPopup(`
-        <div class="popup-title">${cat.icon} ${poi.name}</div>
-        <div>${poi.address || ''}</div>
-        ${poi.rating ? `<div>⭐ ${poi.rating}</div>` : ''}
-        ${poi.reservationUrl ? `<div><a class="popup-link" href="${poi.reservationUrl}" target="_blank">📋 Reserve</a></div>` : ''}
-        <a class="popup-link" href="https://www.google.com/maps/dir/?api=1&destination=${poi.lat},${poi.lng}&travelmode=driving" target="_blank">🧭 Navigate</a>
+        <div class="popup-title">${cat.icon} ${escapeHtml(poi.name)}</div>
+        <div>${escapeHtml(poi.address || '')}</div>
+        ${poi.rating ? `<div>⭐ ${escapeHtml(poi.rating)}</div>` : ''}
+        ${reservationHref ? `<div><a class="popup-link" href="${escapeHtml(reservationHref)}" target="_blank" rel="noopener noreferrer">📋 Reserve</a></div>` : ''}
+        <a class="popup-link" href="https://www.google.com/maps/dir/?api=1&destination=${poi.lat},${poi.lng}&travelmode=driving" target="_blank" rel="noopener noreferrer">🧭 Navigate</a>
       `);
     });
   });
@@ -482,11 +529,11 @@ function renderFavorites() {
       <div class="card-coords">${fav.lat.toFixed(4)}°, ${fav.lng.toFixed(4)}°</div>
       ${fav.pois?.length > 0 ? `
         <div class="card-pois">
-          ${fav.pois.map(poi => `<div class="poi-item"><span class="poi-name">${poi.name}</span></div>`).join('')}
+          ${fav.pois.map(poi => `<div class="poi-item"><span class="poi-name">${escapeHtml(poi.name)}</span></div>`).join('')}
         </div>
       ` : ''}
       <div class="card-actions">
-        <button class="card-btn btn-navigate" onclick="window.open('https://www.google.com/maps/dir/?api=1&destination=${fav.lat},${fav.lng}&travelmode=driving','_blank')">🧭 Navigate</button>
+        <button class="card-btn btn-navigate" data-lat="${fav.lat}" data-lng="${fav.lng}">🧭 Navigate</button>
         <button class="card-btn btn-delete" data-fav-index="${index}">🗑️ Remove</button>
       </div>
     </div>
@@ -505,6 +552,16 @@ function renderFavorites() {
     });
   });
 
+  // Navigate handlers (favorites)
+  document.querySelectorAll('#favorites-list .btn-navigate').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const lat = btn.dataset.lat;
+      const lng = btn.dataset.lng;
+      window.open(`https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}&travelmode=driving`, '_blank', 'noopener,noreferrer');
+    });
+  });
+
   // Card click → pan map
   document.querySelectorAll('#favorites-list .result-card').forEach(card => {
     card.addEventListener('click', () => {
@@ -515,6 +572,32 @@ function renderFavorites() {
   });
 }
 
+// ─── Scan Discovery ──────────────────────────────────────────────────────
+async function loadScanIndex() {
+  try {
+    const resp = await fetch('/data/index.json');
+    if (!resp.ok) return;
+    const data = await resp.json();
+    availableScans = data.scans || [];
+  } catch {
+    availableScans = [];
+  }
+
+  const select = $('#input-scan-pick');
+  if (availableScans.length === 0) {
+    select.innerHTML = '<option value="">— None available —</option>';
+    return;
+  }
+
+  select.innerHTML = '<option value="">— Select a scan —</option>' +
+    availableScans.map(s => {
+      const date = s.lastUpdated ? new Date(s.lastUpdated).toISOString().slice(0, 10) : '—';
+      const label = `${s.centerLat?.toFixed(2)}, ${s.centerLng?.toFixed(2)} · ${s.radiusKm}km @ ${s.stepKm}km · ${date}`;
+      return `<option value="${escapeHtml(s.filename)}">${escapeHtml(label)}</option>`;
+    }).join('');
+}
+
 // ─── Initialize ──────────────────────────────────────────────────────────
 initMap();
 initUI();
+loadScanIndex();

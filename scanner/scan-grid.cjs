@@ -23,6 +23,10 @@ const path = require("path");
 const https = require("https");
 const http = require("http");
 
+// Where the web app looks for pre-computed scans.
+const REPO_ROOT = path.dirname(__dirname);
+const PUBLIC_DATA_DIR = path.join(REPO_ROOT, "public", "data");
+
 // ─── CLI Argument Parsing ────────────────────────────────────────────────────
 
 function parseArgs() {
@@ -97,8 +101,10 @@ function generateGridPoints(centerLat, centerLng, radiusKm, stepKm) {
     const latMax = centerLat + toDeg(radiusKm / EARTH_RADIUS_KM);
 
     for (let lat = latMin; lat <= latMax; lat += latStep) {
-        const lngStep = toDeg(stepKm / (EARTH_RADIUS_KM * Math.cos(toRad(lat))));
-        const lngRange = toDeg(radiusKm / (EARTH_RADIUS_KM * Math.cos(toRad(lat))));
+        const cosLat = Math.cos(toRad(lat));
+        if (cosLat === 0) continue; // poles — skip to avoid div-by-zero
+        const lngStep = toDeg(stepKm / (EARTH_RADIUS_KM * cosLat));
+        const lngRange = toDeg(radiusKm / (EARTH_RADIUS_KM * cosLat));
         const lngMin = centerLng - lngRange;
         const lngMax = centerLng + lngRange;
 
@@ -118,12 +124,13 @@ function generateGridPoints(centerLat, centerLng, radiusKm, stepKm) {
 // ─── Light Pollution API ─────────────────────────────────────────────────────
 
 // The lightpollutionmap.info GeoServer WMS returns grayscale pixel values (0-255).
-// This maps pixel brightness to approximate VIIRS radiance (nW/cm²/sr) using
-// a logarithmic scale derived from the site's rendering:
-//   pixel ≤5   => ~0 nW   (no artificial light — Bortle 1)
-//   pixel ~50  => ~0.17 nW (natural sky background level — Bortle 4)
-//   pixel ~128 => ~2 nW    (suburban — Bortle 6-7)
-//   pixel ~250 => ~100 nW  (city center — Bortle 9)
+// This maps pixel brightness to approximate VIIRS radiance (nW/cm²/sr) using a
+// logarithmic scale fitted so pixel 6 → 0.01 nW and pixel 250 → 100 nW:
+//   pixel ≤5   => 0 nW    (no artificial light — Bortle 1–2)
+//   pixel  50  => ~0.05 nW (rural — Bortle 3)
+//   pixel 128  => ~1.0 nW  (suburban — Bortle 5)
+//   pixel 250  => ~100 nW  (city — Bortle 9)
+// Note: this is an approximate fit to the site's rendering, not VIIRS truth.
 function pixelToRadiance(pixel) {
     if (pixel <= 5) return 0;  // darkest reading — no artificial light
     // Logarithmic mapping from pixel 6-255 to radiance 0.01-100 nW
@@ -202,10 +209,15 @@ function queryRadiance(lat, lng, layer) {
         }
 
         var props = json.features[0].properties;
-        var pixel = props.RED_BAND || props.GRAY_INDEX || 0;
-
-        if (pixel <= 0) {
-            return { radiance: -1, sqm: -1, bortle: -1, pixel: pixel };
+        // Distinguish "missing key" (no data) from a legitimate pixel value of 0
+        var rawPixel = props.RED_BAND;
+        if (rawPixel == null) rawPixel = props.GRAY_INDEX;
+        if (rawPixel == null) {
+            return { radiance: -1, sqm: -1, bortle: -1, error: 'no pixel' };
+        }
+        var pixel = Number(rawPixel);
+        if (!Number.isFinite(pixel) || pixel < 0) {
+            return { radiance: -1, sqm: -1, bortle: -1, error: 'bad pixel' };
         }
 
         var radiance = pixelToRadiance(pixel);
@@ -251,7 +263,36 @@ function saveResults(outputFile, metadata, results) {
         },
         results
     };
+    fs.mkdirSync(path.dirname(outputFile), { recursive: true });
     fs.writeFileSync(outputFile, JSON.stringify(data, null, 2));
+
+    // Refresh index.json only when writing into the web app's data dir
+    if (path.resolve(path.dirname(outputFile)) === path.resolve(PUBLIC_DATA_DIR)) {
+        rebuildIndex(path.dirname(outputFile));
+    }
+}
+
+function rebuildIndex(dataDir) {
+    const scans = [];
+    for (const name of fs.readdirSync(dataDir).sort()) {
+        if (name === 'index.json' || !name.endsWith('.json')) continue;
+        try {
+            const payload = JSON.parse(fs.readFileSync(path.join(dataDir, name), 'utf-8'));
+            const meta = payload.metadata || {};
+            scans.push({
+                filename: name,
+                centerLat: meta.centerLat,
+                centerLng: meta.centerLng,
+                radiusKm: meta.radiusKm,
+                stepKm: meta.stepKm,
+                layer: meta.layer,
+                lastUpdated: meta.lastUpdated,
+                totalPoints: meta.totalPoints,
+                validPoints: meta.validPoints,
+            });
+        } catch { /* skip malformed */ }
+    }
+    fs.writeFileSync(path.join(dataDir, 'index.json'), JSON.stringify({ scans }, null, 2));
 }
 
 // ─── Main ────────────────────────────────────────────────────────────────────
@@ -293,18 +334,17 @@ async function main() {
         const lng = opts.lng;
         const radius = opts.radius || 200;
         const step = opts.step || 5;
-        var layer = opts.layer || 'VIIRS_2023';
 
         metadata = {
             centerLat: lat,
             centerLng: lng,
             radiusKm: radius,
             stepKm: step,
-            layer,
+            layer: opts.layer || 'VIIRS_2023',
             startedAt: new Date().toISOString(),
         };
 
-        outputFile = opts.output || `scan_${lat}_${lng}_${radius}km.json`;
+        outputFile = opts.output || path.join(PUBLIC_DATA_DIR, `scan_${lat}_${lng}_${radius}km.json`);
         allPoints = generateGridPoints(lat, lng, radius, step);
         results = [];
         startIndex = 0;
@@ -321,7 +361,7 @@ async function main() {
     }
 
     const delay = opts.delay || 500;
-    var layer = metadata.layer || 'VIIRS_2023';
+    const layer = metadata.layer || 'VIIRS_2023';
     const totalPoints = startIndex + allPoints.length;
     const startTime = Date.now();
     let errorCount = 0;
@@ -394,7 +434,11 @@ async function main() {
         }
     }
 
-    console.log(`\n📋 Next step: Copy ${outputFile} to public/data/ in your FindDarkSite web app.`);
+    if (path.resolve(path.dirname(outputFile)) === path.resolve(PUBLIC_DATA_DIR)) {
+        console.log(`\n📋 Ready to use in the web app — picker will list ${path.relative(REPO_ROOT, outputFile)}`);
+    } else {
+        console.log(`\n📋 Next step: Copy ${outputFile} to public/data/ in your FindDarkSite web app.`);
+    }
 }
 
 main().catch(err => {
