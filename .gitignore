@@ -17,7 +17,6 @@ config.js
 
 # Scan data (can be large)
 scanner/*.json
-public/data/*.json
 
 # Editor directories and files
 .vscode/*

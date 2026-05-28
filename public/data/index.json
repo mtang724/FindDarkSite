@@ -1,0 +1,15 @@
+{
+  "scans": [
+    {
+      "filename": "scan_37.3704_-121.8784_200km.json",
+      "centerLat": 37.3704,
+      "centerLng": -121.8784,
+      "radiusKm": 200.0,
+      "stepKm": 5.0,
+      "layer": "VIIRS_2023",
+      "lastUpdated": "2026-05-28T09:09:32.647610+00:00",
+      "totalPoints": 5015,
+      "validPoints": 5012
+    }
+  ]
+}
