@@ -175,10 +175,10 @@ Note: the synthetic `pixel` field is dropped (the app never reads it; it used on
 - Cache dir `scanner/viirs/cache/` added to `.gitignore` (multi-GB raster + cache).
 - Generated `scan_*.json` continue to be committed (per the earlier `.gitignore` change).
 
-## Open questions (to settle in the plan)
+## Resolved decisions
 
-1. **Sampling:** nearest-cell (simplest, fine at 500 m vs 5 km grids) vs bilinear (smoother).
-   Default: nearest-cell for v1.
-2. **National file size:** a CONUS `--bbox` at what default step? 5 km national ≈ 306 k land points
-   ≈ ~40 MB JSON (heavy but loadable). Likely ship a coarser (e.g. 10 km) national overview and
-   keep 1–5 km for regional files. Decide in the plan.
+1. **Sampling:** nearest-cell for v1 (500 m raster ≫ 5 km grid, so interpolation buys little).
+   Bilinear can be added later if needed.
+2. **National file resolution:** **5 km** for now. A CONUS `--bbox` at 5 km ≈ 306 k land points
+   ≈ ~40 MB JSON — heavy in-browser but loadable; acceptable for now. A coarser overview can be
+   added later if load time becomes a problem.
