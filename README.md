@@ -41,9 +41,10 @@ FindDarkSite tries to surface all of these at once.
 - **🌌 IDA Dark Sky Places** — 135 certified parks/reserves/sanctuaries from Wikidata, colour-coded by designation.
 
 ### Decision aids
-- **Best Nights view** — ranks (site × night) combos by a blended 0–100 score (cloud 24 + sky 18 + seeing 10 + transparency 8 + moon 14 + drive 8 + remoteness 8 + dew 5 + wind 3 + precip 2); each row explains which axis held it back.
+- **Best Nights view** — ranks (site × night) combos by a three-tier blended 0–100 score (see [Design → Layered ranking](#design) for the breakdown); each row explains which axis held it back.
 - **Auto-source selection** — drops the right scan based on your location, prefers WorldAtlas over VIIRS, falls back to the national CONUS scan.
 - **Geocoded location input** — lat/lng, US ZIP, or any address/place name. Nominatim under the hood, 30-day IndexedDB cache.
+- **Simplified search panel** — only Location / Search Radius / Max Results are visible by default; every threshold, data-source, and enrichment toggle lives inside a collapsed `[+] Advanced filters & sources`. Most users never need to open it.
 - **Share links** — `#site=lat,lng,sqm` URL pins a result for sending.
 - **Favorites import/export** — JSON file you can sync between devices.
 
@@ -91,11 +92,24 @@ Every stage is **independently failable** — Overpass / weather / 7Timer / OSRM
 
 ### Layered ranking
 
-The Best Nights view doesn't sort by SQM alone. Each `(site, night)` pair gets a score 0–100 with a weighted blend. Crucially:
-- **Unreachable sites have remoteness floored to 0** — a Bortle 1 spot you can't drive to is useless.
-- **Sites inside `landuse=military` are treated as 0**.
+The Best Nights view doesn't sort by SQM alone. Each `(site, night)` pair gets a 0–100 score split deliberately across three tiers — *when is the night good*, *how good is the site itself*, and *do real people think it's worth it*:
+
+| Tier | Components (weight) | What it answers |
+|---|---|---|
+| **Tonight** (50) | cloud 20 · moon 10 · seeing 8 · transparency 6 · dew 3 · wind 2 · precip 1 | Is *this specific night* worth driving out for? |
+| **Site** (35) | SQM 15 · horizon clearance 8 · town/residential distance 7 · drive time 5 | Is the *spot itself* genuinely good? |
+| **Community** (15) | IDA-certified proximity 5 · Reddit-vetted proximity 5 · GLOBE-at-Night agreement 5 | Do *real astronomers and the IDA* say so? |
+
+Hard rules layered on top of the score:
+- **Unreachable sites floor remoteness + community to 0** — a Bortle 1 spot you can't drive to is useless, and we won't let IDA proximity rescue it.
+- **Sites inside `landuse=military` are zeroed out the same way**.
+- **IDA tier matters**: Sanctuary (1.0) > Reserve (0.95) > Park (0.85) > Community (0.7) > Urban Night Sky Place (0.55).
+- **Reddit sentiment is signed**: positive proximity adds, negative proximity subtracts ("locals say skip this place" is a real signal).
+- **GLOBE agreement is direction-aware**: a real meter reading higher than our model bumps the score (the model under-counts the spot); a much lower reading drops it.
 - **WorldAtlas data outranks VIIRS** when both cover the same point.
 - **Centered scans outrank national-bbox scans** (smaller payload, faster).
+
+Every reason in the *held-back-by* tag and every chip in the row is sourced directly from these components, so the explanation matches the math.
 
 ### Data sources & licences
 
@@ -116,6 +130,24 @@ All of these are baked into the bundle by scripts in [`scripts/`](scripts/) — 
 | **CARTO Dark Matter + Esri** | Map tiles | CARTO + Esri ToS | runtime cached for offline |
 
 > **License rule worth repeating**: never commit any `public/data/*worldatlas*.json` file or the `public/data/index.json` entry that lists one. Falchi's terms forbid redistribution.
+
+### Visual language
+
+The interface leans into an **astronomical field-instrument** aesthetic rather than generic dark mode. Three accent colours are used with intent — never mixed by accident:
+
+| Colour | Job |
+|---|---|
+| **Indigo** `#818cf8` | Primary action, the brand spine — search button, active card, focus ring |
+| **Cyanotype** `#7dd3fc` | *Measured* / scientific signal — SQM readouts, coords, tick marks, scope-reticle corners on cards |
+| **Ember amber** `#f4a261` | Community / warmth — the Reddit panel's left rule, the moon-chip dot, the "held back by" weakness label |
+
+Four-font system, each font with a job:
+- **Space Grotesk** — display headlines + the big SQM numerals
+- **Inter** — body
+- **JetBrains Mono** — engraved numerics (SQM, coords, distances, tracked-uppercase "instrument" micro-labels like `LOCATION` and `SEARCH RADIUS`)
+- **Spectral italic** — the *why* lines in the Reddit "Locals say…" panel, where field-journal handwriting was the right energy
+
+A handful of motifs reinforce the metaphor without being noisy: scope-reticle corner ticks fade in on result-card hover; the Bortle badge looks like a typewriter stamp; the SQM number gets a tiny mono `m·a⁻²` superscript; the 7-night forecast is rendered as a planetarium tape (cyan dashed tick rule above + vertical hairlines between cells + a ◆ on the best night); the Best Nights score is wrapped in a same-colour 1 px reticle border like a light-meter dial. The page sits on a six-layer radial-gradient star field plus an SVG turbulence-noise grain.
 
 ### Why each layer matters
 
