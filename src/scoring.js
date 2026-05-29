@@ -73,6 +73,15 @@ export function nightScore(site, night) {
     // Land-status nudges: public land = small bump, military = treat as 0.
     if (site.inMilitary) remoteN = 0;
     else if (site.protectedArea) remoteN = Math.min(1, remoteN + 0.1);
+    // IDA-certified Dark Sky Place nearby: bigger nudge — these are vetted
+    // for sky quality + light-management commitments, much stronger signal
+    // than "happens to fall in a park polygon".
+    if (site.darkSkyPlace) {
+        const d = site.darkSkyPlace.distanceKm ?? 25;
+        // Inside (≤2km) → +0.2, fades to 0 at 25km
+        const bump = Math.max(0, 0.2 * (1 - d / 25));
+        remoteN = Math.min(1, remoteN + bump);
+    }
 
     // Astro-specific signals — present only when 7Timer data merged into night.
     const seeingN = seeingScore01(night?.seeing);
@@ -111,6 +120,11 @@ export function nightScore(site, night) {
     if (site.reachable === false) reasons.push(`🚫 no drivable road within 800m`);
     else if (settK != null && settK < 6) reasons.push(`🏘️ ${site.nearestSettlementName || 'town'} only ${settK} km away`);
     else if (settK != null && settK >= 20) reasons.push(`🏞️ ${settK} km from nearest town — quiet`);
+    if (site.darkSkyPlace) {
+        const d = site.darkSkyPlace.distanceKm ?? 0;
+        const verb = d < 2 ? 'inside' : `${d.toFixed(0)} km from`;
+        reasons.push(`🌌 ${verb} IDA ${site.darkSkyPlace.name}`);
+    }
     if (seeingN != null && seeingN >= 0.85) reasons.push(`👁️ seeing ${night.seeing.toFixed(1)}/8 — sharp`);
     else if (seeingN != null && seeingN <= 0.4) reasons.push(`👁️ seeing ${night.seeing.toFixed(1)}/8 — turbulent`);
     if (transpN != null && transpN >= 0.85) reasons.push(`🔭 transparency — pristine`);

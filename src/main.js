@@ -14,11 +14,14 @@ import { nightScore, rankSiteNights } from './scoring.js';
 import { renderHorizonSvg } from './horizon.js';
 import { seeingLabel, transparencyLabel } from './astroWeather.js';
 import { resolveLocation, parseCoords } from './geocode.js';
+import { loadDarkSkyPlaces, placesNear, designationMeta } from './darkSkyPlaces.js';
 import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
 let map, searchCircle, markersGroup;
 let protectedLayer;          // L.layerGroup for protected-area polygons
+let darkSkyLayer;            // L.layerGroup for IDA-certified Dark Sky Places
+let darkSkyPlaces = [];      // cached list from /data/dark-sky-places.json
 let siteMarkers = [];       // Leaflet markers indexed by site position in currentResults.sites
 let activeSiteIndex = null;
 let currentResults = null;
@@ -75,16 +78,21 @@ function initMap() {
   // Protected-area overlay (filled later by renderMapMarkers)
   protectedLayer = L.layerGroup();
 
+  // IDA-certified Dark Sky Places overlay (populated once on load)
+  darkSkyLayer = L.layerGroup();
+
   L.control.layers({
     'Dark': dark,
     'Satellite': satellite,
   }, {
     '🟢 Public lands': protectedLayer,
+    '🌌 IDA Dark Sky Places': darkSkyLayer,
   }, { position: 'topright' }).addTo(map);
 
   markersGroup = L.layerGroup().addTo(map);
-  // Show the overlay by default
+  // Show the overlays by default
   protectedLayer.addTo(map);
+  darkSkyLayer.addTo(map);
 }
 
 // ─── UI Element References ───────────────────────────────────────────────
@@ -592,6 +600,15 @@ async function startSearch() {
       }
     });
 
+    // Enrich each site with its nearest IDA-certified Dark Sky Place (if any
+    // within 25 km). Cheap in-memory lookup, doesn't touch the network.
+    if (darkSkyPlaces.length) {
+      for (const s of result.sites) {
+        const near = placesNear(darkSkyPlaces, s.lat, s.lng, 25);
+        if (near.length) s.darkSkyPlace = near[0];
+      }
+    }
+
     currentResults = result;
     renderResults(result);
     renderMapMarkers(result);
@@ -811,6 +828,18 @@ function renderSiteCard(site, index) {
     const a = site.protectedArea;
     const label = a.name || (a.boundary === 'national_park' ? 'National Park' : 'Protected area');
     metaParts.push(`<span class="card-meta-item reach-good" title="${escapeHtml([a.cls, a.ownership].filter(Boolean).join(' · '))}">🌲 ${escapeHtml(label)}</span>`);
+  }
+  // IDA-certified Dark Sky Place nearby — the gold standard for "set up here".
+  if (darkSkyPlaces.length) {
+    const near = placesNear(darkSkyPlaces, site.lat, site.lng, 25);
+    if (near.length) {
+      const closest = near[0];
+      const meta = designationMeta(closest.designation);
+      const dist = closest.distanceKm < 2
+        ? 'inside'
+        : `${closest.distanceKm.toFixed(1)} km`;
+      metaParts.push(`<span class="card-meta-item reach-good" title="IDA-certified ${meta.label}" style="color:${meta.color}">${meta.icon} ${escapeHtml(closest.name)} <strong>${escapeHtml(dist)}</strong></span>`);
+    }
   }
   // Road surface
   if (site.roadSurface) {
@@ -1330,4 +1359,27 @@ loadScanIndex().then(() => {
   // Both `handleSharedSiteHash` and `autoSelectScan` may depend on the scan list
   handleSharedSiteHash();
   autoSelectScan({ silent: true });
+});
+
+// Bake IDA-certified Dark Sky Places onto the map as soon as we have them.
+loadDarkSkyPlaces().then(places => {
+  darkSkyPlaces = places;
+  for (const p of places) {
+    const meta = designationMeta(p.designation);
+    const marker = L.marker([p.lat, p.lng], {
+      icon: L.divIcon({
+        className: 'darksky-marker',
+        html: `<div style="font-size:18px;line-height:1;filter:drop-shadow(0 0 4px ${meta.color});">${meta.icon}</div>`,
+        iconSize: [22, 22],
+        iconAnchor: [11, 11],
+      }),
+    });
+    marker.bindPopup(
+      `<div class="popup-title">${meta.icon} ${escapeHtml(p.name)}</div>`
+      + `<div style="color:${meta.color};font-weight:600;margin-top:2px">${escapeHtml(meta.label)}</div>`
+      + (p.country ? `<div style="font-size:11px;color:#94a3b8">${escapeHtml(p.country)}</div>` : '')
+      + `<a class="popup-link" href="https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}&travelmode=driving" target="_blank" rel="noopener">🧭 Navigate</a>`
+    );
+    marker.addTo(darkSkyLayer);
+  }
 });

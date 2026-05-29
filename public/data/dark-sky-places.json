@@ -1,0 +1,1089 @@
+{
+  "source": "Wikidata (CC0). Queried IDA-certified Dark Sky Places via wdt:P1435.",
+  "license": "CC0",
+  "attribution": "https://www.wikidata.org",
+  "generatedAt": "2026-05-29T07:07:41.038Z",
+  "count": 135,
+  "places": [
+    {
+      "id": "Q10973",
+      "name": "Albanyà",
+      "lat": 42.30496,
+      "lng": 2.72006,
+      "designation": "park",
+      "country": "Spain"
+    },
+    {
+      "id": "Q1817593",
+      "name": "Antelope Island State Park",
+      "lat": 40.9581,
+      "lng": -112.207,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q614115",
+      "name": "Anza-Borrego Desert State Park",
+      "lat": 33.2592,
+      "lng": -116.399,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q223969",
+      "name": "Arches National Park",
+      "lat": 38.72806,
+      "lng": -109.54,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q15052206",
+      "name": "Bannau Brycheiniog National Park",
+      "lat": 51.88333,
+      "lng": -3.4,
+      "designation": "reserve",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q2321424",
+      "name": "Beverly Shores",
+      "lat": 41.6842,
+      "lng": -86.9856,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q1427197",
+      "name": "Big Bend National Park",
+      "lat": 29.25,
+      "lng": -103.25,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q4905096",
+      "name": "Big Bend Ranch State Park",
+      "lat": 29.5306,
+      "lng": -104.154,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q478682",
+      "name": "Big Cypress National Preserve",
+      "lat": 25.97043,
+      "lng": -81.08115,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q478682",
+      "name": "Big Cypress National Preserve",
+      "lat": 25.85889,
+      "lng": -81.03389,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q305880",
+      "name": "Black Canyon of the Gunnison National Park",
+      "lat": 38.58,
+      "lng": -107.7275,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q889885",
+      "name": "Bodmin Moor",
+      "lat": 50.5625,
+      "lng": -4.6132,
+      "designation": "park",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q3323039",
+      "name": "Bon Accord",
+      "lat": 53.83278,
+      "lng": -113.41889,
+      "designation": "community",
+      "country": "Canada"
+    },
+    {
+      "id": "Q2049424",
+      "name": "Borrego Springs",
+      "lat": 33.24722,
+      "lng": -116.37194,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q2147302",
+      "name": "Boschplaat",
+      "lat": 53.42917,
+      "lng": 5.46222,
+      "designation": "park",
+      "country": "Netherlands"
+    },
+    {
+      "id": "Q219562",
+      "name": "Bryce Canyon National Park",
+      "lat": 37.64,
+      "lng": -112.17,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q4100436",
+      "name": "Buffalo National River",
+      "lat": 35.98095,
+      "lng": -92.81202,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q855548",
+      "name": "Bükk National Park",
+      "lat": 48.04,
+      "lng": 20.53,
+      "designation": "park",
+      "country": "Hungary"
+    },
+    {
+      "id": "Q983745",
+      "name": "Camp Verde",
+      "lat": 34.56361,
+      "lng": -111.85444,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q541856",
+      "name": "Canyonlands National Park",
+      "lat": 38.1669,
+      "lng": -109.76,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q129902",
+      "name": "Capitol Reef National Park",
+      "lat": 38.2,
+      "lng": -111.167,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1035203",
+      "name": "Capulin Volcano National Monument",
+      "lat": 36.78278,
+      "lng": -103.97,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q374879",
+      "name": "Cedar Breaks National Monument",
+      "lat": 37.6425,
+      "lng": -112.849,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q47461214",
+      "name": "Central Idaho Dark Sky Reserve",
+      "lat": 44,
+      "lng": -114.83333,
+      "designation": "reserve",
+      "country": "United States"
+    },
+    {
+      "id": "Q1368807",
+      "name": "Cévennes National Park",
+      "lat": 44.2,
+      "lng": 3.4,
+      "designation": "reserve",
+      "country": "France"
+    },
+    {
+      "id": "Q732463",
+      "name": "Chaco Culture National Historical Park",
+      "lat": 36.06,
+      "lng": -107.97,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q3364031",
+      "name": "Cherry Springs State Park",
+      "lat": 41.6628,
+      "lng": -77.8231,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1074719",
+      "name": "Chiricahua National Monument",
+      "lat": 32.0057,
+      "lng": -109.357,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1099297",
+      "name": "Clayton Lake State Park",
+      "lat": 36.5783,
+      "lng": -103.306,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q194451",
+      "name": "Coll",
+      "lat": 56.62865,
+      "lng": -6.5614,
+      "designation": "community",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q5168694",
+      "name": "Copper Breaks State Park",
+      "lat": 34.1114,
+      "lng": -99.7525,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q72122172",
+      "name": "Cosmic Campground",
+      "lat": 33.47995,
+      "lng": -108.92287,
+      "designation": "sanctuary",
+      "country": "United States"
+    },
+    {
+      "id": "Q5181922",
+      "name": "Cranborne Chase",
+      "lat": 50.96142,
+      "lng": -2.04409,
+      "designation": "reserve",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q1139053",
+      "name": "Craters of the Moon National Monument and Preserve",
+      "lat": 43.4617,
+      "lng": -113.563,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q129470",
+      "name": "Dead Horse Point State Park",
+      "lat": 38.50582,
+      "lng": -109.73317,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q242111",
+      "name": "Death Valley National Park",
+      "lat": 36.45,
+      "lng": -116.85,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q19868179",
+      "name": "Devils River State Natural Area",
+      "lat": 29.923,
+      "lng": -100.97,
+      "designation": "sanctuary",
+      "country": "United States"
+    },
+    {
+      "id": "Q19868179",
+      "name": "Devils River State Natural Area",
+      "lat": 29.93548,
+      "lng": -100.94344,
+      "designation": "sanctuary",
+      "country": "United States"
+    },
+    {
+      "id": "Q1226698",
+      "name": "Dinosaur National Monument",
+      "lat": 40.53333,
+      "lng": -108.98333,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q951210",
+      "name": "Dripping Springs",
+      "lat": 30.1919,
+      "lng": -98.0853,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q3364004",
+      "name": "East Canyon State Park",
+      "lat": 40.9011,
+      "lng": -111.587,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q705097",
+      "name": "Eifel National Park",
+      "lat": 50.6167,
+      "lng": 6.43333,
+      "designation": "park",
+      "country": "Germany"
+    },
+    {
+      "id": "Q1324397",
+      "name": "El Morro National Monument",
+      "lat": 35.0383,
+      "lng": -108.353,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1324865",
+      "name": "Elan Valley",
+      "lat": 52.26222,
+      "lng": -3.58861,
+      "designation": "park",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q2251435",
+      "name": "Enchanted Rock State Natural Area",
+      "lat": 30.5064,
+      "lng": -98.81862,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q20888920",
+      "name": "Eryri National Park",
+      "lat": 52.93333,
+      "lng": -3.93333,
+      "designation": "reserve",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q24643111",
+      "name": "Exmoor National Park",
+      "lat": 51.16667,
+      "lng": -3.75,
+      "designation": "reserve",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q79842",
+      "name": "Flagstaff",
+      "lat": 35.19917,
+      "lng": -111.63111,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q72115395",
+      "name": "Flagstaff Area National Monuments",
+      "lat": 35.54822,
+      "lng": -111.39193,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1430179",
+      "name": "Florissant Fossil Beds National Monument",
+      "lat": 38.9137,
+      "lng": -105.286,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q623124",
+      "name": "Fort Union National Monument",
+      "lat": 35.9073,
+      "lng": -105.012,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q31820343",
+      "name": "Fountain Hills",
+      "lat": 33.60472,
+      "lng": -111.72861,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q3963",
+      "name": "Fulda",
+      "lat": 50.55278,
+      "lng": 9.6775,
+      "designation": "community",
+      "country": "Germany"
+    },
+    {
+      "id": "Q5519173",
+      "name": "Galloway Forest Park",
+      "lat": 55.12386,
+      "lng": -4.4239,
+      "designation": "park",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q1411137",
+      "name": "Goblin Valley State Park",
+      "lat": 38.5667,
+      "lng": -110.71,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1303080",
+      "name": "Goosenecks State Park",
+      "lat": 37.17472,
+      "lng": -109.92694,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q220289",
+      "name": "Grand Canyon National Park",
+      "lat": 36.0553,
+      "lng": -112.122,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1542529",
+      "name": "Grand Canyon-Parashant National Monument",
+      "lat": 36.4,
+      "lng": -113.7,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1363130",
+      "name": "Great Barrier Island",
+      "lat": -36.1796,
+      "lng": 175.41969,
+      "designation": "sanctuary",
+      "country": "New Zealand"
+    },
+    {
+      "id": "Q1137657",
+      "name": "Great Basin National Park",
+      "lat": 39.0058,
+      "lng": -114.2197,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q609097",
+      "name": "Great Sand Dunes National Park and Preserve",
+      "lat": 37.73278,
+      "lng": -105.51222,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q609097",
+      "name": "Great Sand Dunes National Park and Preserve",
+      "lat": 37.83361,
+      "lng": -105.4967,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q714379",
+      "name": "Hehuanshan",
+      "lat": 24.18139,
+      "lng": 121.28139,
+      "designation": "park",
+      "country": "Taiwan"
+    },
+    {
+      "id": "Q2668429",
+      "name": "Homer Glen",
+      "lat": 41.6053,
+      "lng": -87.9525,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q982068",
+      "name": "Horseshoe Bay",
+      "lat": 30.5447,
+      "lng": -98.3683,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q61757",
+      "name": "Hortobágy National Park",
+      "lat": 47.59458,
+      "lng": 21.15678,
+      "designation": "park",
+      "country": "Hungary"
+    },
+    {
+      "id": "Q614423",
+      "name": "Hovenweep National Monument",
+      "lat": 37.38361,
+      "lng": -109.06833,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q703967",
+      "name": "Iriomote-Ishigaki National Park",
+      "lat": 24.31667,
+      "lng": 123.88333,
+      "designation": "park",
+      "country": "Japan"
+    },
+    {
+      "id": "Q6142163",
+      "name": "James River State Park",
+      "lat": 37.6222,
+      "lng": -78.8172,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q735202",
+      "name": "Joshua Tree National Park",
+      "lat": 33.74838,
+      "lng": -115.81931,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q735202",
+      "name": "Joshua Tree National Park",
+      "lat": 33.87343,
+      "lng": -115.90099,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q6347549",
+      "name": "Kaibab Band of Paiute Indians",
+      "lat": 36.9128,
+      "lng": -112.679,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q387762",
+      "name": "Kartchner Caverns State Park",
+      "lat": 31.8375,
+      "lng": -110.34722,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q26695669",
+      "name": "Katahdin Woods and Waters National Monument",
+      "lat": 45.97028,
+      "lng": -68.61944,
+      "designation": "sanctuary",
+      "country": "United States"
+    },
+    {
+      "id": "Q1519069",
+      "name": "Ketchum",
+      "lat": 43.66667,
+      "lng": -114.36667,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q24673817",
+      "name": "Kielder Water & Forest Park",
+      "lat": 55.21938,
+      "lng": -2.60479,
+      "designation": "park",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q6417219",
+      "name": "Kissimmee Prairie Preserve State Park",
+      "lat": 27.6169,
+      "lng": -81.0831,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q129567",
+      "name": "Kodachrome Basin State Park",
+      "lat": 37.5006,
+      "lng": -112.001,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q6488096",
+      "name": "Lapalala Wilderness",
+      "lat": -23.84222,
+      "lng": 28.36639,
+      "designation": "park",
+      "country": "South Africa"
+    },
+    {
+      "id": "Q1651298",
+      "name": "Lauwersmeer National Park",
+      "lat": 53.36389,
+      "lng": 6.19972,
+      "designation": "park",
+      "country": "Netherlands"
+    },
+    {
+      "id": "Q1274674",
+      "name": "Makhtesh Ramon National Park",
+      "lat": 30.57861,
+      "lng": 34.81778,
+      "designation": "park",
+      "country": "Israel"
+    },
+    {
+      "id": "Q237128",
+      "name": "Mesa Verde National Park",
+      "lat": 37.26038,
+      "lng": -108.49444,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q49526009",
+      "name": "Middle Fork River Forest Preserve",
+      "lat": 40.385,
+      "lng": -87.97472,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q646784",
+      "name": "Moffat",
+      "lat": 55.332,
+      "lng": -3.442,
+      "designation": "community",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q666502",
+      "name": "Møn",
+      "lat": 55,
+      "lng": 12.33333,
+      "designation": "park",
+      "country": "Denmark"
+    },
+    {
+      "id": "Q50856120",
+      "name": "Mont-Mégantic International Dark Sky Reserve",
+      "lat": 45.45694,
+      "lng": -71.1625,
+      "designation": "reserve",
+      "country": "Canada"
+    },
+    {
+      "id": "Q1802857",
+      "name": "NamibRand Nature Reserve",
+      "lat": -25,
+      "lng": 16,
+      "designation": "reserve",
+      "country": "Namibia"
+    },
+    {
+      "id": "Q1936970",
+      "name": "Natural Bridges National Monument",
+      "lat": 37.60138,
+      "lng": -110.01374,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q2304167",
+      "name": "Naturita",
+      "lat": 38.2197,
+      "lng": -108.567,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q7019011",
+      "name": "Newport State Park",
+      "lat": 45.235,
+      "lng": -86.9942,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q582205",
+      "name": "Northumberland National Park",
+      "lat": 55.31667,
+      "lng": -2.21667,
+      "designation": "park",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q2278138",
+      "name": "Norwood",
+      "lat": 38.1311,
+      "lng": -108.291,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q2206973",
+      "name": "Nucla",
+      "lat": 38.2667,
+      "lng": -108.547,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q521742",
+      "name": "Nyord",
+      "lat": 55.05,
+      "lng": 12.21667,
+      "designation": "park",
+      "country": "Denmark"
+    },
+    {
+      "id": "Q33017880",
+      "name": "Obed Wild and Scenic River",
+      "lat": 36.08458,
+      "lng": -84.72245,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q7099296",
+      "name": "Oracle State Park",
+      "lat": 32.5911,
+      "lng": -110.579,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q124613239",
+      "name": "Oxford Forest Conservation Area Dark Sky Park",
+      "lat": -43.22806,
+      "lng": 172.05083,
+      "designation": "park",
+      "country": "New Zealand"
+    },
+    {
+      "id": "Q305949",
+      "name": "Petrified Forest National Park",
+      "lat": 35.0881,
+      "lng": -109.806,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1139060",
+      "name": "Pic du Midi de Bigorre",
+      "lat": 42.93722,
+      "lng": 0.14111,
+      "designation": "reserve",
+      "country": "France"
+    },
+    {
+      "id": "Q7190859",
+      "name": "Pickett Civilian Conservation Corps Memorial State Park",
+      "lat": 36.5516,
+      "lng": -84.797,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1343833",
+      "name": "Pipe Spring National Monument",
+      "lat": 36.8625,
+      "lng": -112.7375,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q35672",
+      "name": "Pitcairn Islands",
+      "lat": -25.06778,
+      "lng": -130.10458,
+      "designation": "sanctuary",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q1894724",
+      "name": "Rainbow Bridge National Monument",
+      "lat": 37.07722,
+      "lng": -110.96417,
+      "designation": "sanctuary",
+      "country": "United States"
+    },
+    {
+      "id": "Q864755",
+      "name": "Rhön Biosphere Reserve",
+      "lat": 50.35,
+      "lng": 10.05,
+      "designation": "reserve",
+      "country": "Germany"
+    },
+    {
+      "id": "Q49552728",
+      "name": "Rockport State Park",
+      "lat": 40.76583,
+      "lng": -111.39083,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1477930",
+      "name": "Salinas Pueblo Missions National Monument",
+      "lat": 34.25972,
+      "lng": -106.09028,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q3405693",
+      "name": "Sark",
+      "lat": 49.43306,
+      "lng": -2.36083,
+      "designation": "community",
+      "country": "Guernsey"
+    },
+    {
+      "id": "Q80041",
+      "name": "Sedona",
+      "lat": 34.86,
+      "lng": -111.78917,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q2275079",
+      "name": "Silver Cliff",
+      "lat": 38.1364,
+      "lng": -105.439,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q3695606",
+      "name": "South Downs National Park",
+      "lat": 50.911,
+      "lng": -0.367,
+      "designation": "reserve",
+      "country": "United Kingdom"
+    },
+    {
+      "id": "Q7567830",
+      "name": "South Llano River State Park",
+      "lat": 30.4468,
+      "lng": -99.8053,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q2334603",
+      "name": "Staunton River State Park",
+      "lat": 36.6961,
+      "lng": -78.6853,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q7606792",
+      "name": "Steinaker State Park",
+      "lat": 40.5175,
+      "lng": -109.53,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q7608829",
+      "name": "Stephen C. Foster State Park",
+      "lat": 30.82311,
+      "lng": -82.36444,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q41684",
+      "name": "Stewart Island/Rakiura",
+      "lat": -47,
+      "lng": 167.9,
+      "designation": "sanctuary",
+      "country": "New Zealand"
+    },
+    {
+      "id": "Q18389811",
+      "name": "The Headlands",
+      "lat": 45.7833,
+      "lng": -84.7833,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1456525",
+      "name": "Timpanogos Cave National Monument",
+      "lat": 40.44056,
+      "lng": -111.70944,
+      "designation": "urban",
+      "country": "United States"
+    },
+    {
+      "id": "Q1780335",
+      "name": "Tonto National Monument",
+      "lat": 33.6569,
+      "lng": -111.094,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q483141",
+      "name": "Torrey",
+      "lat": 38.30167,
+      "lng": -111.42,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q3895769",
+      "name": "Tumacácori National Historical Park",
+      "lat": 31.5681,
+      "lng": -111.051,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q17108098",
+      "name": "Valle de Oro National Wildlife Refuge",
+      "lat": 35.1,
+      "lng": -106.6,
+      "designation": "urban",
+      "country": "United States"
+    },
+    {
+      "id": "Q18668530",
+      "name": "Valles Caldera National Preserve",
+      "lat": 35.86667,
+      "lng": -106.56667,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q2727089",
+      "name": "Village of Oak Creek",
+      "lat": 34.7831,
+      "lng": -111.761,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q1368788",
+      "name": "Voyageurs National Park",
+      "lat": 48.5,
+      "lng": -92.88333,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q124613268",
+      "name": "Wai-iti Dark Sky Park",
+      "lat": -41.4299,
+      "lng": 172.9933,
+      "designation": "park",
+      "country": "New Zealand"
+    },
+    {
+      "id": "Q847071",
+      "name": "Warrumbungle National Park",
+      "lat": -31.29222,
+      "lng": 149.00806,
+      "designation": "park",
+      "country": "Australia"
+    },
+    {
+      "id": "Q847071",
+      "name": "Warrumbungle National Park",
+      "lat": -31.23167,
+      "lng": 149.01778,
+      "designation": "park",
+      "country": "Australia"
+    },
+    {
+      "id": "Q828212",
+      "name": "Waterton-Glacier International Peace Park",
+      "lat": 48.99606,
+      "lng": -113.90417,
+      "designation": "park",
+      "country": "Canada"
+    },
+    {
+      "id": "Q49577993",
+      "name": "Weber County North Fork Park",
+      "lat": 41.37056,
+      "lng": -111.90667,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q521692",
+      "name": "Westcliffe",
+      "lat": 38.1328,
+      "lng": -105.466,
+      "designation": "community",
+      "country": "United States"
+    },
+    {
+      "id": "Q1970695",
+      "name": "Westhavelland Nature Park",
+      "lat": 52.77046,
+      "lng": 12.47138,
+      "designation": "reserve",
+      "country": "Germany"
+    },
+    {
+      "id": "Q805409",
+      "name": "Wild Nephin National Park",
+      "lat": 54.01667,
+      "lng": -9.7,
+      "designation": "park",
+      "country": "Ireland"
+    },
+    {
+      "id": "Q2584651",
+      "name": "Winklmoos-Alm",
+      "lat": 47.6569,
+      "lng": 12.5842,
+      "designation": "park",
+      "country": "Germany"
+    },
+    {
+      "id": "Q205325",
+      "name": "Zion National Park",
+      "lat": 37.20262,
+      "lng": -112.98785,
+      "designation": "park",
+      "country": "United States"
+    },
+    {
+      "id": "Q1467967",
+      "name": "Zselic National Landscape Protection Area",
+      "lat": 46.2283,
+      "lng": 17.7578,
+      "designation": "park",
+      "country": "Hungary"
+    }
+  ]
+}
