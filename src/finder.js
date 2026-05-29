@@ -116,10 +116,14 @@ export async function findDarkSites(options) {
 
     onStageChange?.('poi-search', `Found ${candidateSeeds.length} dark areas, searching for nearby facilities...`);
     onProgress?.(0, 1, `Fetching facilities for ${candidateSeeds.length} dark areas...`);
-    const overpassPOIs = candidateSeeds.length
+    const overpassResult = candidateSeeds.length
         ? await searchNearbyPOIsBatch(candidateSeeds.map(s => ({ lat: s.lat, lng: s.lng })), poiRadiusM, signal)
-        : [];
-    onProgress?.(1, 1, `Got ${overpassPOIs.length} OSM facilities`);
+        : { pois: [], error: null };
+    const overpassPOIs = overpassResult.pois;
+    const overpassError = overpassResult.error;
+    onProgress?.(1, 1, overpassError
+        ? `Overpass call failed — see results panel for details`
+        : `Got ${overpassPOIs.length} OSM facilities`);
     throwIfAborted();
 
     const poiRadiusKm = poiRadiusM / 1000;
@@ -211,6 +215,7 @@ export async function findDarkSites(options) {
         totalPOIs: finalSites.reduce((sum, s) => sum + s.pois.length, 0),
         bestSqm: finalSites.length ? Math.max(...finalSites.map(s => s.sqm)) : null,
         bestBortle: finalSites.length ? Math.min(...finalSites.map(s => s.bortle)) : null,
+        overpassError, // null on success, error message string when every Overpass call failed
     };
 
     onStageChange?.('done', `Found ${finalSites.length} recommended sites!`);

@@ -75,44 +75,44 @@
         </div>
 
         <div class="form-group">
-          <label>Data Source</label>
-          <div class="radio-group">
-            <label class="radio-option">
-              <input type="radio" name="data-source" value="precomputed" checked />
-              <span>Pre-computed scan</span>
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="data-source" value="live" />
-              <span>Live API (slow)</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="form-group" id="scan-file-group">
-          <label for="input-scan-pick">Pre-computed Scan</label>
+          <label for="input-scan-pick">Data Source</label>
           <select id="input-scan-pick">
-            <option value="">— None available —</option>
+            <option value="__auto__">Auto (best for your location)</option>
           </select>
-          <p class="form-hint">Scans in <code>public/data/</code> are discovered automatically.</p>
-
-          <label for="input-scan-file" style="margin-top:0.5rem;display:block">Or upload a JSON file</label>
-          <input type="file" id="input-scan-file" accept=".json" />
+          <p id="source-indicator" class="source-indicator">Auto-selected source will appear here</p>
         </div>
 
-        <div class="form-group" id="live-options" style="display:none">
-          <label>Grid Step</label>
-          <div class="radio-group">
-            <label class="radio-option">
-              <input type="radio" name="grid-step" value="3" /> 3 km
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="grid-step" value="5" checked /> 5 km
-            </label>
-            <label class="radio-option">
-              <input type="radio" name="grid-step" value="10" /> 10 km
+        <details class="advanced-panel">
+          <summary>Advanced</summary>
+
+          <div class="form-group">
+            <label for="input-scan-file">Upload custom scan JSON</label>
+            <input type="file" id="input-scan-file" accept=".json" />
+            <p class="form-hint">Overrides the dropdown when set.</p>
+          </div>
+
+          <div class="form-group">
+            <label>
+              <input type="checkbox" id="opt-live-scan" />
+              <span>Use Live API instead (for areas outside CONUS — slow)</span>
             </label>
           </div>
-        </div>
+
+          <div class="form-group" id="live-options" style="display:none">
+            <label>Live Grid Step</label>
+            <div class="radio-group">
+              <label class="radio-option">
+                <input type="radio" name="grid-step" value="3" /> 3 km
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="grid-step" value="5" checked /> 5 km
+              </label>
+              <label class="radio-option">
+                <input type="radio" name="grid-step" value="10" /> 10 km
+              </label>
+            </div>
+          </div>
+        </details>
 
         <div class="form-group">
           <label for="input-max-results">Max Results</label>

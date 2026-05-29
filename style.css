@@ -375,6 +375,61 @@ select {
   display: none;
 }
 
+/* Source indicator chip shown below the data-source dropdown */
+.source-indicator {
+  margin-top: 6px;
+  padding: 6px 10px;
+  background: rgba(129, 140, 248, 0.08);
+  border: 1px solid rgba(129, 140, 248, 0.18);
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.source-indicator.warn {
+  background: rgba(251, 191, 36, 0.08);
+  border-color: rgba(251, 191, 36, 0.25);
+  color: var(--accent-warning);
+}
+
+/* Advanced disclosure */
+.advanced-panel {
+  margin-bottom: 18px;
+  border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+}
+
+.advanced-panel > summary {
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 4px 0;
+  user-select: none;
+  list-style: none;
+}
+
+.advanced-panel > summary::-webkit-details-marker { display: none; }
+
+.advanced-panel > summary::before {
+  content: '▸';
+  display: inline-block;
+  margin-right: 6px;
+  transition: transform 0.15s;
+}
+
+.advanced-panel[open] > summary::before {
+  transform: rotate(90deg);
+}
+
+.advanced-panel[open] > summary {
+  margin-bottom: 12px;
+  color: var(--text-secondary);
+}
+
 .form-hint {
   font-size: 11px;
   color: var(--text-muted);
@@ -499,6 +554,55 @@ select {
   grid-template-columns: repeat(3, 1fr);
   gap: 8px;
   margin-bottom: 16px;
+}
+
+.overpass-error {
+  grid-column: 1 / -1;
+  padding: 12px 14px;
+  background: rgba(248, 113, 113, 0.08);
+  border: 1px solid rgba(248, 113, 113, 0.35);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.overpass-error strong {
+  color: var(--accent-danger);
+  font-size: 13px;
+}
+
+.overpass-error-detail {
+  margin-top: 4px;
+  color: var(--text-secondary);
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 11px;
+  word-break: break-word;
+}
+
+.overpass-error-hint {
+  margin-top: 6px;
+  color: var(--text-muted);
+}
+
+#btn-retry-overpass {
+  margin-top: 8px;
+  padding: 5px 12px;
+  background: rgba(248, 113, 113, 0.15);
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: var(--radius-sm);
+  color: var(--accent-danger);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+#btn-retry-overpass:hover {
+  background: rgba(248, 113, 113, 0.25);
+}
+
+#btn-retry-overpass:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .stat-card {

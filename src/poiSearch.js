@@ -94,34 +94,116 @@ function parseOverpassElements(elements) {
 }
 
 /**
+ * Spatial-extent bounding box (km) for a set of centers. Used to decide whether
+ * to split a batch into smaller geographic groups.
+ */
+function spanKm(centers) {
+    if (centers.length < 2) return 0;
+    let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+    for (const c of centers) {
+        if (c.lat < minLat) minLat = c.lat;
+        if (c.lat > maxLat) maxLat = c.lat;
+        if (c.lng < minLng) minLng = c.lng;
+        if (c.lng > maxLng) maxLng = c.lng;
+    }
+    // Diagonal in km — rough but good enough to spot blow-ups.
+    const dLat = (maxLat - minLat) * 111;
+    const dLng = (maxLng - minLng) * 111 * Math.cos((minLat + maxLat) * Math.PI / 360);
+    return Math.sqrt(dLat * dLat + dLng * dLng);
+}
+
+/**
+ * Split a list of centers into groups so each group spans ≤ MAX_SPAN_KM. Greedy:
+ * grow a group around the first unassigned center, peeling off centers within
+ * MAX_SPAN_KM of it. Cheaper than k-means and avoids pathological queries.
+ */
+function groupCenters(centers, maxSpanKm = 250) {
+    if (centers.length <= 1 || spanKm(centers) <= maxSpanKm) return [centers];
+    const remaining = [...centers];
+    const groups = [];
+    while (remaining.length > 0) {
+        const seed = remaining.shift();
+        const group = [seed];
+        const halfSpan = maxSpanKm / 2;
+        for (let i = remaining.length - 1; i >= 0; i--) {
+            const c = remaining[i];
+            const dLat = (c.lat - seed.lat) * 111;
+            const dLng = (c.lng - seed.lng) * 111 * Math.cos((c.lat + seed.lat) * Math.PI / 360);
+            const d = Math.sqrt(dLat * dLat + dLng * dLng);
+            if (d <= halfSpan) {
+                group.push(c);
+                remaining.splice(i, 1);
+            }
+        }
+        groups.push(group);
+    }
+    return groups;
+}
+
+async function postOverpass(query, signal) {
+    // Some Overpass mirrors are now stricter — explicit Accept + UA avoid 406s.
+    const resp = await fetch(OVERPASS_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Accept': 'application/json',
+        },
+        body: 'data=' + encodeURIComponent(query),
+        signal,
+    });
+    if (!resp.ok) {
+        const sample = await resp.text().then(t => t.slice(0, 180)).catch(() => '');
+        const err = new Error(`Overpass HTTP ${resp.status}${sample ? `: ${sample}` : ''}`);
+        err.status = resp.status;
+        throw err;
+    }
+    const data = await resp.json();
+    return parseOverpassElements(data.elements || []);
+}
+
+/**
  * Batched Overpass query covering many cluster centers at once.
- * Returns a flat array of POIs in the union region; callers filter by distance.
+ * Returns `{ pois, error }` so callers can distinguish "no POIs near these
+ * seeds" from "Overpass call failed". Splits the call into geographic groups
+ * if the centers span more than ~250 km (avoids query-too-expensive rejects).
  *
  * @param {Array<{lat:number,lng:number}>} centers
  * @param {number} radiusM
  * @param {AbortSignal} [signal]
+ * @returns {Promise<{ pois: Array, error: string|null }>}
  */
 export async function searchNearbyPOIsBatch(centers, radiusM = 8000, signal) {
-    if (!centers || centers.length === 0) return [];
-    const query = buildOverpassQuery(centers, radiusM);
-    try {
-        const resp = await fetch(OVERPASS_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-            body: 'data=' + encodeURIComponent(query),
-            signal,
-        });
-        if (!resp.ok) {
-            console.warn(`Overpass error: HTTP ${resp.status}`);
-            return [];
+    if (!centers || centers.length === 0) return { pois: [], error: null };
+
+    const groups = groupCenters(centers);
+    const seen = new Set();
+    const merged = [];
+    const errors = [];
+
+    for (let i = 0; i < groups.length; i++) {
+        if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+        const group = groups[i];
+        const query = buildOverpassQuery(group, radiusM);
+        try {
+            const pois = await postOverpass(query, signal);
+            for (const p of pois) {
+                if (seen.has(p.placeId)) continue;
+                seen.add(p.placeId);
+                merged.push(p);
+            }
+        } catch (err) {
+            if (err.name === 'AbortError') throw err;
+            console.warn(`Overpass batch ${i + 1}/${groups.length} failed:`, err.message);
+            errors.push(err.message);
         }
-        const data = await resp.json();
-        return parseOverpassElements(data.elements || []);
-    } catch (err) {
-        if (err.name === 'AbortError') throw err;
-        console.warn('Overpass error:', err.message);
-        return [];
+        // Light pacing between groups so we don't trip per-IP rate-limits
+        if (i < groups.length - 1) await new Promise(r => setTimeout(r, 500));
     }
+
+    // Only return an error if every group failed. A partial success still gives
+    // the user something useful.
+    const error = errors.length === groups.length ? errors[0] : null;
+    return { pois: merged, error };
 }
 
 /**

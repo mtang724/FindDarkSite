@@ -6,7 +6,7 @@ import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { findDarkSites } from './finder.js';
 import { haversineDistance, formatDistance, sqmToBortle, bortleDescription, escapeHtml, safeHttpUrl } from './utils.js';
-import { categorizePOI } from './poiSearch.js';
+import { categorizePOI, searchNearbyPOIsBatch } from './poiSearch.js';
 import { moonSummary, darknessWindow, formatLocalTime } from './astronomy.js';
 import { bestNight } from './weather.js';
 import { formatDriveTime } from './routing.js';
@@ -20,6 +20,7 @@ let currentResults = null;
 let scanFileData = null;       // File from <input type="file"> fallback
 let selectedScanData = null;   // Parsed JSON from /data/<picked>.json dropdown
 let availableScans = [];       // Loaded from /data/index.json
+let autoSelectedScan = null;   // The scan metadata picked by autoSelectScan, for the indicator
 let userLat = null, userLng = null;
 let favorites = JSON.parse(localStorage.getItem('darksite-favorites') || '[]');
 let activePanel = 'search'; // 'search' | 'results' | 'favorites'
@@ -111,48 +112,50 @@ function initUI() {
       userLat = parsed[0];
       userLng = parsed[1];
       updateMoonChip();
-      autoSelectScan();
+      autoSelectScan({ force: true });
     }
   });
 
-  // Data source toggle
-  $$('input[name="data-source"]').forEach(radio => {
-    radio.addEventListener('change', () => {
-      const isPrecomputed = radio.value === 'precomputed' && radio.checked;
-      $('#scan-file-group').style.display = isPrecomputed ? '' : 'none';
-      $('#live-options').style.display = isPrecomputed ? 'none' : '';
-    });
+  // Live API toggle (Advanced) — only relevant for areas outside CONUS
+  $('#opt-live-scan').addEventListener('change', (e) => {
+    $('#live-options').style.display = e.target.checked ? '' : 'none';
+    updateSourceIndicator();
   });
 
-  // File upload (fallback when no scan in public/data/, or user has a custom one)
+  // File upload (Advanced) — overrides dropdown when set
   $('#input-scan-file').addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (file) {
       scanFileData = file;
-      // File upload takes precedence — clear any dropdown pick
       selectedScanData = null;
-      $('#input-scan-pick').value = '';
+      $('#input-scan-pick').value = '__auto__';
+      updateSourceIndicator();
     }
   });
 
-  // Scan picker dropdown
+  // Scan picker dropdown — '__auto__' means "let the app decide based on location"
   $('#input-scan-pick').addEventListener('change', async (e) => {
     const filename = e.target.value;
-    if (!filename) {
+    // Clear uploaded file when user picks something explicit
+    if (filename) {
+      scanFileData = null;
+      $('#input-scan-file').value = '';
+    }
+    if (!filename || filename === '__auto__') {
       selectedScanData = null;
+      await autoSelectScan({ force: true });
       return;
     }
-    // Clear uploaded file so dropdown takes precedence
-    scanFileData = null;
-    $('#input-scan-file').value = '';
     try {
       const resp = await fetch(`/data/${encodeURIComponent(filename)}`);
       if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
       selectedScanData = await resp.json();
+      updateSourceIndicator();
     } catch (err) {
       alert(`Failed to load scan: ${err.message}`);
-      e.target.value = '';
+      e.target.value = '__auto__';
       selectedScanData = null;
+      updateSourceIndicator();
     }
   });
 
@@ -213,6 +216,42 @@ function parseLocationInput() {
   return parts;
 }
 
+function updateSourceIndicator() {
+  const el = $('#source-indicator');
+  if (!el) return;
+  if ($('#opt-live-scan')?.checked) {
+    el.classList.remove('warn');
+    el.textContent = '🔴 Live API — will scan a fresh grid via the lightpollutionmap.info WMS (slow).';
+    return;
+  }
+  if (scanFileData) {
+    el.classList.remove('warn');
+    el.textContent = `📂 Custom file: ${scanFileData.name}`;
+    return;
+  }
+  const select = $('#input-scan-pick');
+  const v = select?.value;
+  if (v && v !== '__auto__') {
+    const scan = availableScans.find(s => s.filename === v);
+    el.classList.remove('warn');
+    el.textContent = `✓ ${sourceLabel(scan)} (manual pick)`;
+    return;
+  }
+  // Auto mode
+  if (autoSelectedScan && selectedScanData) {
+    el.classList.remove('warn');
+    el.textContent = `✨ Auto: ${sourceLabel(autoSelectedScan)}`;
+    return;
+  }
+  if (userLat == null || userLng == null) {
+    el.classList.remove('warn');
+    el.textContent = '✨ Auto — pick a location to lock in a source.';
+    return;
+  }
+  el.classList.add('warn');
+  el.textContent = '⚠️ No scan covers this location. Enable Live API in Advanced.';
+}
+
 let toastTimer = null;
 function showToast(text) {
   let toast = document.getElementById('toast');
@@ -247,32 +286,101 @@ function updateMoonChip() {
 }
 
 // ─── Auto-Select Scan ────────────────────────────────────────────────────
-async function autoSelectScan() {
-  if (userLat == null || userLng == null) return;
-  if (!availableScans.length) return;
-  // Don't override an explicit user pick
-  if ($('#input-scan-pick').value && selectedScanData) return;
+function scanCoversLocation(scan, lat, lng) {
+  const bbox = scanBbox(scan);
+  if (bbox) {
+    const [minLng, minLat, maxLng, maxLat] = bbox;
+    return lng >= minLng && lng <= maxLng && lat >= minLat && lat <= maxLat;
+  }
+  // Centered scan: inside circular coverage
+  if (scan.centerLat != null && scan.centerLng != null && scan.radiusKm != null) {
+    return haversineDistance(lat, lng, scan.centerLat, scan.centerLng) <= scan.radiusKm;
+  }
+  return false;
+}
 
-  // Find the closest scan whose coverage circle contains the user
+// Lower = preferred. WorldAtlas resolves Bortle 1/2/3 so it should beat VIIRS
+// when both cover the same point. National bbox scans get a slight penalty so
+// a focused regional scan covering the same point is preferred (smaller payload).
+function sourcePreference(scan) {
+  let pref = 0;
+  const tag = scanSourceTag(scan);
+  if (tag.includes('WorldAtlas')) pref -= 50;   // prefer WorldAtlas
+  if (scanBbox(scan)) pref += 30;               // mild penalty for national
+  return pref;
+}
+
+function sourceLabel(scan) {
+  if (!scan) return '';
+  const tag = scanSourceTag(scan);
+  const bbox = scanBbox(scan);
+  if (bbox) return `${tag} National CONUS`;
+  if (scan.centerLat != null) return `${tag} ${scan.centerLat.toFixed(2)}, ${scan.centerLng.toFixed(2)} · ${scan.radiusKm}km`;
+  return `${tag} ${scan.filename}`;
+}
+
+function scanScore(scan, lat, lng) {
+  // Lower = better. Centered scans beat national bbox scans because they're
+  // already filtered to the right area (smaller payload, faster pipeline).
+  if (scan.centerLat != null && scan.centerLng != null) {
+    return haversineDistance(lat, lng, scan.centerLat, scan.centerLng);
+  }
+  const bbox = scanBbox(scan);
+  if (bbox) {
+    const [minLng, minLat, maxLng, maxLat] = bbox;
+    const cLng = (minLng + maxLng) / 2;
+    const cLat = (minLat + maxLat) / 2;
+    // Penalise bbox scans slightly so a focused centered scan covering the same
+    // point is preferred (faster + less memory).
+    return haversineDistance(lat, lng, cLat, cLng) + 10000;
+  }
+  return Infinity;
+}
+
+async function autoSelectScan({ force = false, silent = false } = {}) {
+  if (!availableScans.length) {
+    updateSourceIndicator();
+    return;
+  }
+  const select = $('#input-scan-pick');
+  // Honour an explicit non-Auto user pick unless asked to recompute
+  if (!force && select.value && select.value !== '__auto__' && selectedScanData) return;
+
+  // Score candidates that cover the user's location (if known). When the user
+  // hasn't entered a location yet, fall back to the broadest available scan.
   let best = null;
-  let bestDist = Infinity;
-  for (const scan of availableScans) {
-    const d = haversineDistance(userLat, userLng, scan.centerLat, scan.centerLng);
-    if (d <= scan.radiusKm && d < bestDist) {
-      bestDist = d;
-      best = scan;
+  if (userLat != null && userLng != null) {
+    let bestScore = Infinity;
+    for (const scan of availableScans) {
+      if (!scanCoversLocation(scan, userLat, userLng)) continue;
+      const score = scanScore(scan, userLat, userLng) + sourcePreference(scan);
+      if (score < bestScore) {
+        bestScore = score;
+        best = scan;
+      }
     }
   }
-  if (!best) return;
+  // No covering scan — prefer the national WorldAtlas/VIIRS bbox if either exists
+  if (!best) {
+    best = availableScans.find(s => scanBbox(s) && /worldatlas/i.test(s.filename))
+        || availableScans.find(s => scanBbox(s))
+        || null;
+  }
 
-  const select = $('#input-scan-pick');
-  if (select.value === best.filename) return; // already selected
-  select.value = best.filename;
+  if (!best) {
+    updateSourceIndicator();
+    return;
+  }
+
   try {
     const resp = await fetch(`/data/${encodeURIComponent(best.filename)}`);
     if (resp.ok) {
       selectedScanData = await resp.json();
-      showToast(`Auto-selected scan: ${best.filename}`);
+      autoSelectedScan = best;
+      // Keep the dropdown on "Auto" so the user knows the pick is automatic
+      if (select.value !== '__auto__') select.value = '__auto__';
+      updateSourceIndicator();
+      if (!silent) showToast(`Source: ${sourceLabel(best)}`);
     }
   } catch { /* ignore */ }
 }
@@ -310,7 +418,7 @@ function geolocate() {
       }).addTo(map).bindPopup('📍 Your Location');
 
       updateMoonChip();
-      autoSelectScan();
+      autoSelectScan({ force: true });
     },
     (err) => {
       alert(`Geolocation error: ${err.message}`);
@@ -349,7 +457,8 @@ async function startSearch() {
   const radiusKm = parseInt($('#input-radius').value);
   const minSqm = parseFloat($('#input-sqm').value);
   const maxResults = parseInt($('#input-max-results').value);
-  const dataSource = $('input[name="data-source"]:checked').value;
+  const useLive = $('#opt-live-scan').checked;
+  const dataSource = useLive ? 'live' : 'precomputed';
   const gridStepKm = parseInt($('input[name="grid-step"]:checked')?.value || '5');
   const minElevationM = parseInt($('#input-min-elev').value) || 0;
   const enrichWeather = $('#opt-weather').checked;
@@ -357,8 +466,13 @@ async function startSearch() {
 
   updateMoonChip();
 
+  // Auto mode: if no scan is picked yet, try to pick one for this location
   if (dataSource === 'precomputed' && !scanFileData && !selectedScanData) {
-    alert('Please pick or upload a scan data file, or switch to "Live API" mode.');
+    await autoSelectScan({ force: true });
+  }
+
+  if (dataSource === 'precomputed' && !scanFileData && !selectedScanData) {
+    alert('No scan covers this location. Open Advanced and either upload a scan, or enable "Use Live API" for areas outside CONUS.');
     return;
   }
 
@@ -434,8 +548,19 @@ function renderResults({ sites, stats }) {
       <div class="stat-value">${stats.bestSqm?.toFixed(1) || '—'}</div>
       <div class="stat-label">Best SQM</div>
     </div>
+    ${stats.overpassError ? `
+      <div class="overpass-error">
+        <strong>⚠️ Facility lookup failed.</strong>
+        <div class="overpass-error-detail">${escapeHtml(stats.overpassError)}</div>
+        <div class="overpass-error-hint">OpenStreetMap's Overpass API rejected the query (usually a transient rate-limit). Sites are listed by distance — try the retry button to reload facilities only.</div>
+        <button id="btn-retry-overpass" class="text-btn">↻ Retry facilities</button>
+      </div>
+    ` : ''}
   `;
   $('#results-stats').innerHTML = statsHtml;
+  if (stats.overpassError) {
+    $('#btn-retry-overpass')?.addEventListener('click', retryOverpassOnly);
+  }
 
   // Results list
   const listHtml = sites.map((site, index) => renderSiteCard(site, index)).join('');
@@ -487,6 +612,32 @@ function renderResults({ sites, stats }) {
       if (!ok) console.log('Share URL:', url);
     });
   });
+}
+
+async function retryOverpassOnly() {
+  if (!currentResults?.sites?.length) return;
+  const btn = $('#btn-retry-overpass');
+  if (btn) { btn.disabled = true; btn.textContent = '↻ Retrying...'; }
+  try {
+    const centers = currentResults.sites.map(s => ({ lat: s.lat, lng: s.lng }));
+    const { pois, error } = await searchNearbyPOIsBatch(centers, 8000);
+    const poiRadiusKm = 8;
+    currentResults.sites.forEach(site => {
+      const local = pois.filter(p => haversineDistance(site.lat, site.lng, p.lat, p.lng) <= poiRadiusKm)
+        .map(p => ({ ...p, distanceFromSeed: haversineDistance(site.lat, site.lng, p.lat, p.lng) }))
+        .sort((a, b) => a.distanceFromSeed - b.distanceFromSeed);
+      site.pois = local;
+      site.hasNearbyFacilities = local.length > 0;
+    });
+    currentResults.stats.sitesWithFacilities = currentResults.sites.filter(s => s.hasNearbyFacilities).length;
+    currentResults.stats.overpassError = error;
+    renderResults(currentResults);
+    renderMapMarkers(currentResults);
+    showToast(error ? `Retry still failed: ${error}` : 'Facilities reloaded.');
+  } catch (err) {
+    showToast(`Retry failed: ${err.message}`);
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Retry facilities'; }
+  }
 }
 
 function renderSiteCard(site, index) {
@@ -847,12 +998,39 @@ async function loadScanIndex() {
     return;
   }
 
-  select.innerHTML = '<option value="">— Select a scan —</option>' +
+  select.innerHTML = '<option value="__auto__">Auto (best for your location)</option>' +
     availableScans.map(s => {
       const date = s.lastUpdated ? new Date(s.lastUpdated).toISOString().slice(0, 10) : '—';
-      const label = `${s.centerLat?.toFixed(2)}, ${s.centerLng?.toFixed(2)} · ${s.radiusKm}km @ ${s.stepKm}km · ${date}`;
+      const src = scanSourceTag(s);
+      const bbox = scanBbox(s);
+      let where;
+      if (bbox) {
+        const pts = s.totalPoints ? ` · ${(s.totalPoints / 1000).toFixed(0)}K pts` : '';
+        where = `National CONUS${pts}`;
+      } else if (s.centerLat != null && s.centerLng != null) {
+        where = `${s.centerLat.toFixed(2)}, ${s.centerLng.toFixed(2)} · ${s.radiusKm}km`;
+      } else {
+        where = s.filename;
+      }
+      const label = `${src} ${where} @ ${s.stepKm}km · ${date}`;
       return `<option value="${escapeHtml(s.filename)}">${escapeHtml(label)}</option>`;
     }).join('');
+}
+
+// The scanner emits `bbox` only inside the scan JSON, not in index.json.
+// Parse it from the filename pattern so we can both label and auto-pick.
+function scanBbox(s) {
+  if (Array.isArray(s.bbox) && s.bbox.length === 4) return s.bbox;
+  const m = /scan_bbox_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)_(-?\d+(?:\.\d+)?)/.exec(s.filename || '');
+  if (!m) return null;
+  return [parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3]), parseFloat(m[4])];
+}
+
+function scanSourceTag(s) {
+  const layer = (s.layer || '').toLowerCase();
+  if (s.filename?.includes('worldatlas') || layer.includes('worldatlas')) return '🌌 WorldAtlas';
+  if (layer.includes('viirs')) return '🛰️ VIIRS';
+  return '📡';
 }
 
 // ─── Shared Site (URL hash) ──────────────────────────────────────────────
@@ -880,8 +1058,9 @@ function handleSharedSiteHash() {
 initMap();
 initUI();
 updateMoonChip();
+updateSourceIndicator();
 loadScanIndex().then(() => {
   // Both `handleSharedSiteHash` and `autoSelectScan` may depend on the scan list
   handleSharedSiteHash();
-  autoSelectScan();
+  autoSelectScan({ silent: true });
 });
