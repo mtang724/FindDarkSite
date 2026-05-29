@@ -1267,7 +1267,7 @@ select {
 }
 
 .result-card {
-  padding: 16px 16px 14px;
+  padding: 14px 14px 12px;
   background:
     linear-gradient(180deg, rgba(255, 255, 255, 0.015), transparent 40%),
     var(--bg-glass);
@@ -1277,6 +1277,37 @@ select {
   transition: border-color 0.22s, transform 0.22s, box-shadow 0.22s, background 0.22s;
   backdrop-filter: blur(10px);
   position: relative;
+}
+
+/* Collapsed cards are denser — no inner padding wasted on missing content. */
+.result-card.collapsed {
+  padding: 12px 14px 10px;
+}
+
+.result-card.collapsed .card-actions {
+  margin-top: 10px;
+  padding-top: 8px;
+}
+
+.result-card.expanded {
+  padding: 16px 16px 14px;
+}
+
+/* Expand / collapse toggle — sits at the LEFT of the action footer in a
+   smaller, quieter style than the colored Navigate/Save buttons. */
+.card-btn.btn-expand {
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  background: rgba(8, 12, 22, 0.5);
+  border-color: var(--border-color);
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.card-btn.btn-expand:hover {
+  background: rgba(125, 211, 252, 0.10);
+  border-color: var(--cyan);
+  color: var(--cyan-bright);
 }
 
 /* Viewfinder corner ticks — invisible until hover/active. Top-left + bottom-right
@@ -1331,7 +1362,79 @@ select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
+}
+
+/* ─── Headline insight — the single colored line per card ────────────────
+ * One short sentence per site, tone selected by siteHeadline(). This is
+ * where the visual hierarchy is concentrated: bright text + a thin tinted
+ * left rule. Everything else on a collapsed card is plain.
+ */
+.card-headline {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 9px 11px 9px 12px;
+  border-radius: 3px;
+  background: rgba(8, 12, 22, 0.6);
+  border-left: 3px solid var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.4;
+  color: var(--text-secondary);
+  margin: 4px 0 0;
+}
+
+.card-headline-icon {
+  font-size: 15px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.card-headline-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-headline-text strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* Tone palette — six purposeful colors, no rainbow */
+.card-headline.tone-danger {
+  background: rgba(251, 113, 133, 0.10);
+  border-left-color: var(--accent-danger);
+  color: #fecaca;
+}
+.card-headline.tone-warn {
+  background: rgba(251, 191, 36, 0.08);
+  border-left-color: var(--accent-warning);
+  color: #fde68a;
+}
+.card-headline.tone-good {
+  background: rgba(74, 222, 128, 0.08);
+  border-left-color: var(--accent-success);
+  color: #bbf7d0;
+}
+.card-headline.tone-measured {
+  background: rgba(125, 211, 252, 0.08);
+  border-left-color: var(--cyan);
+  color: var(--cyan-bright);
+}
+.card-headline.tone-feature {
+  background: rgba(129, 140, 248, 0.08);
+  border-left-color: var(--accent-primary);
+  color: var(--accent-bright);
+}
+.card-headline.tone-community {
+  background: rgba(244, 162, 97, 0.10);
+  border-left-color: var(--ember);
+  color: var(--ember-bright);
+}
+.card-headline.tone-neutral {
+  background: rgba(15, 23, 42, 0.55);
+  border-left-color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .card-sqm {
@@ -1500,14 +1603,8 @@ select {
   fill: var(--text-muted);
 }
 
-.card-meta-item.horizon-good,
-.card-meta-item.reach-good { color: var(--accent-success); }
-.card-meta-item.horizon-good strong,
-.card-meta-item.reach-good strong { color: var(--accent-success); }
-.card-meta-item.horizon-ok,
-.card-meta-item.reach-ok { color: var(--accent-warning); }
-.card-meta-item.horizon-ok strong,
-.card-meta-item.reach-ok strong { color: var(--accent-warning); }
+/* Color discipline: meta chips are facts. Hazards get red. Everything else is
+   neutral grey so the user's eye flows to the one colored card-headline. */
 .card-meta-item.horizon-bad,
 .card-meta-item.reach-bad { color: var(--accent-danger); }
 .card-meta-item.horizon-bad strong,

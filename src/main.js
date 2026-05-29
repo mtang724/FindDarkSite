@@ -39,7 +39,8 @@ let autoSelectedScan = null;   // The scan metadata picked by autoSelectScan, fo
 let userLat = null, userLng = null;
 let favorites = JSON.parse(localStorage.getItem('darksite-favorites') || '[]');
 let activePanel = 'search'; // 'search' | 'results' | 'favorites'
-let resultsView = 'sites';  // 'sites' | 'nights'
+let resultsView = 'sites';  // 'sites' | 'nights' | 'reddit'
+let expandedCards = new Set();    // indices of result cards currently expanded
 let currentAbortController = null;
 
 // ─── Config (inline — user edits this or uses config.js) ─────────────────
@@ -656,6 +657,7 @@ async function startSearch() {
     }
 
     currentResults = result;
+    expandedCards = new Set();   // fresh result set → re-seed auto-expand inside renderResults
     renderResults(result);
     renderMapMarkers(result);
     showPanel('results');
@@ -704,16 +706,34 @@ function renderResults({ sites, stats }) {
     $('#btn-retry-overpass')?.addEventListener('click', retryOverpassOnly);
   }
 
-  // Reddit "locals say" section — pinned to the user's nearest covered metro.
-  // Renders above the cards so users see vetted spots before scrolling.
-  renderRedditSection();
+  // Reddit map pins are always drawn; the panel UI now lives inside the view
+  // toggle as a third tab (no longer above the cards).
+  ensureRedditMapPins();
 
-  // View toggle (only meaningful when at least one site has a forecast)
+  // Auto-expand the first two cards so the demo isn't hidden behind a click.
+  // We only seed this on a fresh result set (when nothing is expanded yet).
+  if (expandedCards.size === 0 && sites.length > 0) {
+    expandedCards.add(0);
+    if (sites.length > 1) expandedCards.add(1);
+  }
+
+  // View toggle: Sites · Best Nights · Locals
   const anyForecast = sites.some(s => s.forecast?.length);
-  const toggleHtml = anyForecast ? `
+  const anyReddit   = (activeRedditMetro?.places?.length || 0) > 0;
+  // If the requested view isn't available, fall back to sites
+  if (resultsView === 'nights' && !anyForecast) resultsView = 'sites';
+  if (resultsView === 'reddit' && !anyReddit)   resultsView = 'sites';
+
+  const tabs = [
+    { id: 'sites',  label: 'By Site' },
+    anyForecast ? { id: 'nights', label: 'Best Nights' } : null,
+    anyReddit   ? { id: 'reddit', label: `Locals${activeRedditMetro ? ` · ${activeRedditMetro.metro}` : ''}` } : null,
+  ].filter(Boolean);
+  const toggleHtml = tabs.length > 1 ? `
     <div class="view-toggle" role="tablist">
-      <button class="view-toggle-btn ${resultsView === 'sites' ? 'active' : ''}" data-view="sites">By Site</button>
-      <button class="view-toggle-btn ${resultsView === 'nights' ? 'active' : ''}" data-view="nights">Best Nights</button>
+      ${tabs.map(t => `
+        <button class="view-toggle-btn ${resultsView === t.id ? 'active' : ''}" data-view="${t.id}">${escapeHtml(t.label)}</button>
+      `).join('')}
     </div>
   ` : '';
 
@@ -723,13 +743,40 @@ function renderResults({ sites, stats }) {
     bodyHtml = ranked.length
       ? ranked.map((row, i) => renderNightRow(row, i, sites)).join('')
       : '<div class="empty-state"><p>No scored nights yet — enable "Cloud forecast" on next search.</p></div>';
+  } else if (resultsView === 'reddit' && anyReddit) {
+    bodyHtml = renderRedditTabBody();
   } else {
     bodyHtml = sites.length
-      ? sites.map((site, index) => renderSiteCard(site, index)).join('')
+      ? sites.map((site, index) => renderSiteCard(site, index, expandedCards.has(index))).join('')
       : '<div class="empty-state"><p>No dark sites found matching your criteria.</p></div>';
   }
 
   $('#results-list').innerHTML = toggleHtml + bodyHtml;
+
+  // Reddit tab body needs click-to-pan handlers identical to the old section
+  if (resultsView === 'reddit') {
+    document.querySelectorAll('#results-list .reddit-row[data-lat]').forEach(a => {
+      a.addEventListener('click', (e) => {
+        const lat = parseFloat(a.dataset.lat);
+        const lng = parseFloat(a.dataset.lng);
+        if (!isFinite(lat) || !isFinite(lng)) return;
+        if (e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        map.setView([lat, lng], 11);
+      });
+    });
+  }
+
+  // Expand / collapse handlers on the result cards
+  document.querySelectorAll('.btn-expand').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.index);
+      if (expandedCards.has(idx)) expandedCards.delete(idx);
+      else expandedCards.add(idx);
+      renderResults(currentResults);
+    });
+  });
 
   // Wire toggle
   document.querySelectorAll('.view-toggle-btn').forEach(btn => {
@@ -799,76 +846,120 @@ function renderResults({ sites, stats }) {
 }
 
 /**
- * Render the "🗣️ Locals say…" section into a slot above the results list,
- * pulling from `activeRedditMetro`. Idempotent: calling it again clears the
- * previous section first. Also drops map pins for every located spot.
+ * Drop sentiment-coloured pins for every covered Reddit spot. Idempotent —
+ * clears prior pins first. Called once per search; the map layer is always
+ * available (toggle-able via Leaflet layer control).
  */
-function renderRedditSection() {
-  const listEl = $('#results-list');
-  // Reset map pins + remove any previous section
+function ensureRedditMapPins() {
   redditLayer.clearLayers();
-  document.querySelector('.reddit-section')?.remove();
   if (!activeRedditMetro?.places?.length) return;
-
-  const rows = activeRedditMetro.places
-    .slice()
-    .sort((a, b) => (a.sentiment === 'positive' ? -1 : 1) - (b.sentiment === 'positive' ? -1 : 1));
-
-  // Drop a pin per geocoded spot
-  for (const p of rows) {
+  for (const p of activeRedditMetro.places) {
     if (p.lat == null || p.lng == null) continue;
-    const color = p.sentiment === 'positive' ? '#34d399' : p.sentiment === 'negative' ? '#f87171' : '#fbbf24';
+    const color = p.sentiment === 'positive' ? '#4ade80' : p.sentiment === 'negative' ? '#fb7185' : '#fbbf24';
     const marker = L.marker([p.lat, p.lng], {
       icon: L.divIcon({
         className: 'reddit-marker',
-        html: `<div style="background:${color};width:14px;height:14px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px ${color};"></div>`,
+        html: `<div style="background:${color};width:14px;height:14px;border:2px solid #050810;border-radius:50%;box-shadow:0 0 8px ${color};"></div>`,
         iconSize: [16, 16],
         iconAnchor: [8, 8],
       }),
     });
     marker.bindPopup(
       `<div class="popup-title">🗣️ ${escapeHtml(p.name)}</div>`
-      + `<div style="font-size:12px;color:#cbd5e1;margin:4px 0">${escapeHtml(p.why)}</div>`
+      + `<div style="font-style:italic;font-size:12px;color:#cbd5e1;margin:4px 0">${escapeHtml(p.why)}</div>`
       + (p.sourceUrl ? `<a class="popup-link" href="${escapeHtml(p.sourceUrl)}" target="_blank" rel="noopener">📄 Reddit thread</a>` : '')
     );
     marker.addTo(redditLayer);
   }
+}
 
-  // Render the panel
-  const section = document.createElement('div');
-  section.className = 'reddit-section';
-  section.innerHTML = `
-    <div class="reddit-section-header">
-      🗣️ Locals say — <strong>${escapeHtml(activeRedditMetro.metro)}, ${escapeHtml(activeRedditMetro.state)}</strong>
-      <span class="reddit-section-meta">${rows.length} spots from r/${escapeHtml(activeRedditMetro.places[0]?.subreddit || activeRedditMetro.metro)}</span>
-    </div>
-    <div class="reddit-section-body">
-      ${rows.map(p => `
-        <a class="reddit-row" href="${escapeHtml(p.sourceUrl || '#')}" target="_blank" rel="noopener"
-           data-lat="${p.lat ?? ''}" data-lng="${p.lng ?? ''}">
-          <span class="reddit-dot" style="background:${p.sentiment === 'positive' ? '#34d399' : p.sentiment === 'negative' ? '#f87171' : '#fbbf24'}"></span>
-          <span class="reddit-body">
-            <strong>${escapeHtml(p.name)}</strong>
-            <span class="reddit-why">${escapeHtml(p.why)}</span>
-          </span>
-          <span class="reddit-meta">r/${escapeHtml(p.subreddit || '?')}</span>
-        </a>
-      `).join('')}
+/**
+ * Render the Reddit "Locals say" rows as the third tab's body (no longer a
+ * fixed banner above the cards). Sorted positive → mixed → negative.
+ */
+function renderRedditTabBody() {
+  if (!activeRedditMetro?.places?.length) return '';
+  const rows = activeRedditMetro.places.slice().sort((a, b) =>
+    (a.sentiment === 'positive' ? -1 : 1) - (b.sentiment === 'positive' ? -1 : 1)
+  );
+  return `
+    <div class="reddit-section">
+      <div class="reddit-section-header">
+        🗣️ <strong>${escapeHtml(activeRedditMetro.metro)}, ${escapeHtml(activeRedditMetro.state)}</strong>
+        <span class="reddit-section-meta">${rows.length} spots · r/${escapeHtml(activeRedditMetro.places[0]?.subreddit || activeRedditMetro.metro)}</span>
+      </div>
+      <div class="reddit-section-body">
+        ${rows.map(p => `
+          <a class="reddit-row" href="${escapeHtml(p.sourceUrl || '#')}" target="_blank" rel="noopener"
+             data-lat="${p.lat ?? ''}" data-lng="${p.lng ?? ''}">
+            <span class="reddit-dot" style="background:${p.sentiment === 'positive' ? '#4ade80' : p.sentiment === 'negative' ? '#fb7185' : '#fbbf24'}"></span>
+            <span class="reddit-body">
+              <strong>${escapeHtml(p.name)}</strong>
+              <span class="reddit-why">${escapeHtml(p.why)}</span>
+            </span>
+            <span class="reddit-meta">r/${escapeHtml(p.subreddit || '?')}</span>
+          </a>
+        `).join('')}
+      </div>
     </div>
   `;
-  listEl.parentNode.insertBefore(section, listEl);
+}
 
-  // Click a row → pan the map to that pin (link still works for sourceUrl in new tab)
-  section.querySelectorAll('.reddit-row[data-lat]').forEach(a => {
-    a.addEventListener('click', (e) => {
-      const lat = parseFloat(a.dataset.lat);
-      const lng = parseFloat(a.dataset.lng);
-      if (!isFinite(lat) || !isFinite(lng)) return;
-      if (e.ctrlKey || e.metaKey || e.shiftKey) return; // let modifier-click open link
-      e.preventDefault();
-      map.setView([lat, lng], 11);
-    });
-  });
+/**
+ * Pick THE single most important thing to say about this site — that one line
+ * is the only colored signal on a collapsed card. Priority is "what would the
+ * user most regret not knowing": real hazards first, then defining strengths,
+ * then defining weaknesses, then a neutral fallback.
+ *
+ * Returns { icon, text, tone } where tone ∈ {danger, warn, feature, community, measured, neutral, good}
+ */
+function siteHeadline(site) {
+  const today = new Date().toISOString().slice(0, 10);
+  const tonight = site.forecast?.find(n => n.date >= today);
+
+  // 1. Hazards — never hide these
+  if (site.inMilitary) return { icon: '⛔', text: 'Inside military area — do not enter', tone: 'danger' };
+  if (site.reachable === false) return { icon: '🚫', text: 'No drivable road within 800 m', tone: 'danger' };
+  if (tonight?.dewMarginC != null && tonight.dewMarginC < 2) {
+    return { icon: '💧', text: `Tonight: ${tonight.dewMarginC}°C dew margin — gear will wet`, tone: 'danger' };
+  }
+
+  // 2. Strong positives that define the spot
+  if (site.darkSkyPlace && site.darkSkyPlace.distanceKm < 2) {
+    return { icon: '🌲', text: `Inside IDA ${site.darkSkyPlace.name}`, tone: 'feature' };
+  }
+  const r = site.nearestRedditSpot;
+  if (r && r.distanceKm < 8 && r.sentiment === 'positive') {
+    return { icon: '🗣️', text: `Near r/${r.subreddit}'s ${r.name} — Reddit favorite`, tone: 'community' };
+  }
+  if (site.sqm >= 21.7) {
+    return { icon: '🌌', text: `Pristine sky · SQM ${site.sqm.toFixed(1)}`, tone: 'measured' };
+  }
+
+  // 3. Defining warnings that aren't hazards
+  if (site.horizon && site.horizon.maxAngle > 18) {
+    return { icon: '🏔️', text: `${site.horizon.maxAngle.toFixed(0)}° horizon obstruction ${site.horizon.worstAzimuth || ''}`, tone: 'warn' };
+  }
+  if (site.nearestSettlementKm != null && site.nearestSettlementKm < 6) {
+    return { icon: '🏘️', text: `Only ${site.nearestSettlementKm} km from ${site.nearestSettlementName || 'town'}`, tone: 'warn' };
+  }
+
+  // 4. Mild positives — useful but not headline-grabbing
+  if (site.darkSkyPlace) {
+    return { icon: '🌲', text: `${site.darkSkyPlace.distanceKm.toFixed(0)} km from IDA ${site.darkSkyPlace.name}`, tone: 'feature' };
+  }
+  if (site.horizon && site.horizon.maxAngle < 5) {
+    return { icon: '🏔️', text: 'Horizon clear all around', tone: 'good' };
+  }
+  if (site.driving && site.driving.durationSec < 30 * 60) {
+    return { icon: '🚗', text: `${formatDriveTime(site.driving.durationSec)} drive`, tone: 'good' };
+  }
+
+  // 5. Neutral fallback
+  if (site.driving) {
+    return { icon: '🚗', text: `${formatDriveTime(site.driving.durationSec)} · ${Math.round(site.driving.distanceKm)} km`, tone: 'neutral' };
+  }
+  return { icon: '📍', text: `${formatDistance(site.distance)} ${site.direction}`, tone: 'neutral' };
 }
 
 async function retryOverpassOnly() {
@@ -897,8 +988,52 @@ async function retryOverpassOnly() {
   }
 }
 
-function renderSiteCard(site, index) {
+function renderSiteCard(site, index, isExpanded = false) {
   const isSaved = favorites.some(f => f.lat === site.lat && f.lng === site.lng);
+  const headline = siteHeadline(site);
+  const driveSummary = site.driving
+    ? `<span class="card-distance">${formatDriveTime(site.driving.durationSec)} · ${formatDistance(site.distance)}</span>`
+    : `<span class="card-distance">${formatDistance(site.distance)} ${site.direction}</span>`;
+
+  // Always-on hero block — visible whether collapsed or expanded.
+  const heroHtml = `
+    <div class="card-header">
+      <div class="card-sqm">
+        <span class="sqm-value">${site.sqm.toFixed(1)}</span>
+        <span class="bortle-badge bortle-${site.bortle}">Bortle ${site.bortle}</span>
+      </div>
+      ${driveSummary}
+    </div>
+    <div class="card-headline tone-${headline.tone}">
+      <span class="card-headline-icon">${headline.icon}</span>
+      <span class="card-headline-text">${escapeHtml(headline.text)}</span>
+    </div>
+  `;
+
+  // Footer — always present so Save / Navigate are reachable without expanding.
+  const actionsHtml = `
+    <div class="card-actions">
+      <button class="card-btn btn-expand" data-index="${index}" title="${isExpanded ? 'Hide details' : 'Show details'}">
+        ${isExpanded ? '▴ Less' : '▾ More'}
+      </button>
+      <button class="card-btn btn-navigate" data-lat="${site.lat}" data-lng="${site.lng}">🧭 Navigate</button>
+      <button class="card-btn btn-share" data-index="${index}">🔗 Share</button>
+      <button class="card-btn btn-save ${isSaved ? 'saved' : ''}" data-index="${index}">
+        ${isSaved ? '⭐ Saved' : '☆ Save'}
+      </button>
+    </div>
+  `;
+
+  if (!isExpanded) {
+    return `
+      <div class="result-card collapsed" data-index="${index}" data-lat="${site.lat}" data-lng="${site.lng}">
+        ${heroHtml}
+        ${actionsHtml}
+      </div>
+    `;
+  }
+
+  // ─── Expanded body (only built when this card is open) ─────────────────
   const poisHtml = site.pois.slice(0, 5).map(poi => {
     const cat = categorizePOI(poi.types);
     return `
@@ -917,68 +1052,58 @@ function renderSiteCard(site, index) {
     ? '<div class="amenity-tag" style="color:var(--accent-warning)">⚠️ No nearby facilities — may be hard to reach</div>'
     : '';
 
-  // Meta row: elevation + drive time + horizon summary
+  // Meta row: facts in neutral grey; only red for *hazards* the user must see
+  // before driving. Everything else is colour-discipline plain.
   const metaParts = [];
   if (site.elevationM != null) {
     metaParts.push(`<span class="card-meta-item">⛰️ <strong>${Math.round(site.elevationM)} m</strong></span>`);
   }
   if (site.driving) {
-    metaParts.push(`<span class="card-meta-item">🚗 <strong>${formatDriveTime(site.driving.durationSec)}</strong> drive · ${Math.round(site.driving.distanceKm)} km</span>`);
+    metaParts.push(`<span class="card-meta-item">🚗 <strong>${formatDriveTime(site.driving.durationSec)}</strong> · ${Math.round(site.driving.distanceKm)} km</span>`);
   }
+  // Horizon — only the >15° "obstructed" case earns a colour. Clear/OK go neutral.
   if (site.horizon) {
-    const tone = site.horizon.maxAngle < 5 ? 'good' : site.horizon.maxAngle < 15 ? 'ok' : 'bad';
-    metaParts.push(`<span class="card-meta-item horizon-${tone}">🏔️ horizon <strong>${site.horizon.maxAngle.toFixed(1)}°</strong> ${escapeHtml(site.horizon.worstAzimuth || '')}</span>`);
+    const isBlocked = site.horizon.maxAngle >= 15;
+    const cls = isBlocked ? 'card-meta-item horizon-bad' : 'card-meta-item';
+    metaParts.push(`<span class="${cls}">🏔️ horizon <strong>${site.horizon.maxAngle.toFixed(1)}°</strong> ${escapeHtml(site.horizon.worstAzimuth || '')}</span>`);
   }
-  // Reachability tags
+  // Reachability: red on absence, neutral on presence.
   if (site.nearestRoadM != null) {
-    const tone = site.reachable ? (site.nearestRoadM < 200 ? 'good' : 'ok') : 'bad';
-    const label = site.reachable
-      ? `🛣️ road <strong>${site.nearestRoadM} m</strong>`
-      : `🛣️ <strong>no drivable road</strong>`;
-    metaParts.push(`<span class="card-meta-item reach-${tone}">${label}</span>`);
+    if (site.reachable) {
+      metaParts.push(`<span class="card-meta-item">🛣️ road <strong>${site.nearestRoadM} m</strong></span>`);
+    } else {
+      metaParts.push(`<span class="card-meta-item reach-bad">🛣️ <strong>no drivable road</strong></span>`);
+    }
   } else if (site.reachable === false) {
     metaParts.push(`<span class="card-meta-item reach-bad">🛣️ <strong>no drivable road</strong></span>`);
   }
   if (site.nearestSettlementName) {
-    const k = site.nearestSettlementKm;
-    const tone = k >= 15 ? 'good' : k >= 8 ? 'ok' : 'bad';
-    metaParts.push(`<span class="card-meta-item reach-${tone}">🏘️ ${escapeHtml(site.nearestSettlementName)} <strong>${k} km</strong></span>`);
+    metaParts.push(`<span class="card-meta-item">🏘️ ${escapeHtml(site.nearestSettlementName)} <strong>${site.nearestSettlementKm} km</strong></span>`);
   }
-  // Public-land badge: green if inside a protected area, red if inside a military area.
   if (site.inMilitary) {
     metaParts.push(`<span class="card-meta-item reach-bad">⛔ <strong>Inside military area</strong></span>`);
   } else if (site.protectedArea?.name || site.protectedArea?.boundary) {
     const a = site.protectedArea;
     const label = a.name || (a.boundary === 'national_park' ? 'National Park' : 'Protected area');
-    metaParts.push(`<span class="card-meta-item reach-good" title="${escapeHtml([a.cls, a.ownership].filter(Boolean).join(' · '))}">🌲 ${escapeHtml(label)}</span>`);
+    metaParts.push(`<span class="card-meta-item" title="${escapeHtml([a.cls, a.ownership].filter(Boolean).join(' · '))}">🌲 ${escapeHtml(label)}</span>`);
   }
-  // IDA-certified Dark Sky Place nearby — the gold standard for "set up here".
   if (darkSkyPlaces.length) {
     const near = placesNear(darkSkyPlaces, site.lat, site.lng, 25);
     if (near.length) {
       const closest = near[0];
       const meta = designationMeta(closest.designation);
-      const dist = closest.distanceKm < 2
-        ? 'inside'
-        : `${closest.distanceKm.toFixed(1)} km`;
-      metaParts.push(`<span class="card-meta-item reach-good" title="IDA-certified ${meta.label}" style="color:${meta.color}">${meta.icon} ${escapeHtml(closest.name)} <strong>${escapeHtml(dist)}</strong></span>`);
+      const dist = closest.distanceKm < 2 ? 'inside' : `${closest.distanceKm.toFixed(1)} km`;
+      metaParts.push(`<span class="card-meta-item" title="IDA-certified ${meta.label}">${meta.icon} ${escapeHtml(closest.name)} <strong>${escapeHtml(dist)}</strong></span>`);
     }
   }
-  // GLOBE at Night nearby measurement — real human-observed signal that
-  // confirms (or undermines) the satellite SQM model.
   if (site.sqmReport) {
     const r = site.sqmReport;
-    const readingLabel = r.sqm != null
-      ? `SQM <strong>${r.sqm.toFixed(2)}</strong>`
-      : `NELM <strong>${r.limitingMag}</strong>`;
+    const readingLabel = r.sqm != null ? `SQM <strong>${r.sqm.toFixed(2)}</strong>` : `NELM <strong>${r.limitingMag}</strong>`;
     const dKm = r.distanceKm?.toFixed(1) ?? '?';
-    metaParts.push(`<span class="card-meta-item reach-good" title="GLOBE at Night observation${r.comment ? ': ' + r.comment.replace(/[<>"']/g, '') : ''}" style="color:${sqmColor(r.sqm)}">📍 measured ${readingLabel} ${dKm} km away</span>`);
+    metaParts.push(`<span class="card-meta-item" title="GLOBE at Night observation${r.comment ? ': ' + r.comment.replace(/[<>"']/g, '') : ''}">📍 measured ${readingLabel} · ${dKm} km</span>`);
   }
-  // Road surface
   if (site.roadSurface) {
-    const paved = /^(asphalt|paved|concrete)$/.test(site.roadSurface);
-    const tone = paved ? 'good' : (site.roadSurface === 'unpaved' || site.roadSurface === 'gravel') ? 'ok' : 'bad';
-    metaParts.push(`<span class="card-meta-item reach-${tone}">🛤️ ${escapeHtml(site.roadSurface)}</span>`);
+    metaParts.push(`<span class="card-meta-item">🛤️ ${escapeHtml(site.roadSurface)}</span>`);
   }
   const metaHtml = metaParts.length
     ? `<div class="card-meta">${metaParts.join('')}</div>`
@@ -999,14 +1124,8 @@ function renderSiteCard(site, index) {
   const astroChipsHtml = tonight ? renderAstroChips(tonight) : '';
 
   return `
-    <div class="result-card" data-index="${index}" data-lat="${site.lat}" data-lng="${site.lng}">
-      <div class="card-header">
-        <div class="card-sqm">
-          <span class="sqm-value">${site.sqm.toFixed(1)}</span>
-          <span class="bortle-badge bortle-${site.bortle}">Bortle ${site.bortle}</span>
-        </div>
-        <span class="card-distance">${formatDistance(site.distance)} ${site.direction}</span>
-      </div>
+    <div class="result-card expanded" data-index="${index}" data-lat="${site.lat}" data-lng="${site.lng}">
+      ${heroHtml}
       <div class="card-coords">${site.lat.toFixed(4)}°, ${site.lng.toFixed(4)}°</div>
       <div class="card-row-flex">
         <div class="card-row-flex-main">
@@ -1028,6 +1147,7 @@ function renderSiteCard(site, index) {
         </div>
       ` : ''}
       <div class="card-actions">
+        <button class="card-btn btn-expand" data-index="${index}" title="Hide details">▴ Less</button>
         <button class="card-btn btn-navigate" data-lat="${site.lat}" data-lng="${site.lng}">🧭 Navigate</button>
         <button class="card-btn btn-satellite" data-lat="${site.lat}" data-lng="${site.lng}">🛰️ Satellite</button>
         <button class="card-btn btn-share" data-index="${index}">🔗 Share</button>

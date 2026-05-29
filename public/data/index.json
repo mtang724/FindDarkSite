@@ -51,6 +51,14 @@
       "lastUpdated": "2026-05-28T19:12:41.483Z",
       "totalPoints": 596742,
       "validPoints": 596163
+    },
+    {
+      "filename": "scan_bbox_-125_24_-66.5_50_5km_worldatlas.json",
+      "stepKm": 5,
+      "layer": "WorldAtlas_2015",
+      "lastUpdated": "2026-05-28T22:25:24.582Z",
+      "totalPoints": 596742,
+      "validPoints": 596741
     }
   ]
 }
