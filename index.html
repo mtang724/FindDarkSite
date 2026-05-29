@@ -7,7 +7,7 @@
   <meta name="description" content="Find the best dark sky stargazing locations near you in the US, with nearby campgrounds, lodging, and parking." />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Space+Grotesk:wght@500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Spectral:ital,wght@0,400;0,600;1,400;1,600&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="/style.css" />
   <link rel="icon" href="/icons/favicon-32.png" type="image/png" sizes="32x32" />
@@ -58,63 +58,74 @@
         </div>
 
         <div class="form-group">
-          <label for="input-sqm">Min SQM: <span id="sqm-value">20.5</span> <span id="bortle-value" class="bortle-badge bortle-4">Bortle 4</span></label>
-          <input type="range" id="input-sqm" min="18.0" max="22.0" value="20.5" step="0.1" />
-        </div>
-
-        <div class="form-group">
-          <label for="input-min-elev">Min Elevation: <span id="elev-value">0</span> m</label>
-          <input type="range" id="input-min-elev" min="0" max="3000" value="0" step="100" />
-          <p class="form-hint">Higher = thinner atmosphere, fewer clouds. Useful for mountains.</p>
-        </div>
-
-        <div class="form-group">
-          <label for="input-max-horizon">Max Horizon Blockage: <span id="horizon-value">off</span></label>
-          <input type="range" id="input-max-horizon" min="0" max="25" value="0" step="1" />
-          <p class="form-hint">Drop sites with a ridge above this angle. 0 = no filter.</p>
-        </div>
-
-        <div class="form-group">
-          <label for="input-min-settlement">Min Distance from Towns: <span id="settlement-value">off</span></label>
-          <input type="range" id="input-min-settlement" min="0" max="25" value="0" step="1" />
-          <p class="form-hint">Drop sites near cities/towns/villages. Light glow reaches further than VIIRS sees.</p>
-        </div>
-
-        <div class="form-group">
-          <label class="checkbox-option">
-            <input type="checkbox" id="opt-hide-unreachable" checked />
-            <span>🚫 Hide unreachable sites (no road within 800 m)</span>
-          </label>
-        </div>
-
-        <div class="form-group">
-          <label>Enrich top sites with</label>
-          <div class="checkbox-group">
-            <label class="checkbox-option">
-              <input type="checkbox" id="opt-weather" checked />
-              <span>☁️ Cloud forecast</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" id="opt-driving" checked />
-              <span>🚗 Driving time</span>
-            </label>
-            <label class="checkbox-option">
-              <input type="checkbox" id="opt-horizon" checked />
-              <span>⛰️ Horizon profile</span>
-            </label>
-          </div>
-        </div>
-
-        <div class="form-group">
-          <label for="input-scan-pick">Data Source</label>
-          <select id="input-scan-pick">
-            <option value="__auto__">Auto (best for your location)</option>
+          <label for="input-max-results">Max Results</label>
+          <select id="input-max-results">
+            <option value="10">10</option>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
           </select>
-          <p id="source-indicator" class="source-indicator">Auto-selected source will appear here</p>
         </div>
 
         <details class="advanced-panel">
-          <summary>Advanced</summary>
+          <summary>Advanced filters &amp; sources</summary>
+
+          <div class="form-group">
+            <label for="input-sqm">Min SQM: <span id="sqm-value">20.0</span> <span id="bortle-value" class="bortle-badge bortle-5">Bortle 5</span></label>
+            <input type="range" id="input-sqm" min="18.0" max="22.0" value="20.0" step="0.1" />
+          </div>
+
+          <div class="form-group">
+            <label for="input-min-elev">Min Elevation: <span id="elev-value">0</span> m</label>
+            <input type="range" id="input-min-elev" min="0" max="3000" value="0" step="100" />
+            <p class="form-hint">Higher = thinner atmosphere, fewer clouds. Useful for mountains.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="input-max-horizon">Max Horizon Blockage: <span id="horizon-value">off</span></label>
+            <input type="range" id="input-max-horizon" min="0" max="25" value="0" step="1" />
+            <p class="form-hint">Drop sites with a ridge above this angle. 0 = no filter.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="input-min-settlement">Min Distance from Towns: <span id="settlement-value">off</span></label>
+            <input type="range" id="input-min-settlement" min="0" max="25" value="0" step="1" />
+            <p class="form-hint">Drop sites near cities/towns/villages.</p>
+          </div>
+
+          <div class="form-group">
+            <label class="checkbox-option">
+              <input type="checkbox" id="opt-hide-unreachable" checked />
+              <span>🚫 Hide unreachable sites (no road within 800 m)</span>
+            </label>
+          </div>
+
+          <div class="form-group">
+            <label>Enrich top sites with</label>
+            <div class="checkbox-group">
+              <label class="checkbox-option">
+                <input type="checkbox" id="opt-weather" checked />
+                <span>☁️ Cloud / astro forecast</span>
+              </label>
+              <label class="checkbox-option">
+                <input type="checkbox" id="opt-driving" checked />
+                <span>🚗 Driving time</span>
+              </label>
+              <label class="checkbox-option">
+                <input type="checkbox" id="opt-horizon" checked />
+                <span>⛰️ Horizon profile</span>
+              </label>
+            </div>
+            <p class="form-hint">Adds 10–30 s of network work. Turn off if you just want a fast list.</p>
+          </div>
+
+          <div class="form-group">
+            <label for="input-scan-pick">Data Source</label>
+            <select id="input-scan-pick">
+              <option value="__auto__">Auto (best for your location)</option>
+            </select>
+            <p id="source-indicator" class="source-indicator">Auto-selected source will appear here</p>
+          </div>
 
           <div class="form-group">
             <label for="input-scan-file">Upload custom scan JSON</label>
@@ -123,7 +134,7 @@
           </div>
 
           <div class="form-group">
-            <label>
+            <label class="checkbox-option">
               <input type="checkbox" id="opt-live-scan" />
               <span>Use Live API instead (for areas outside CONUS — slow)</span>
             </label>
@@ -144,16 +155,6 @@
             </div>
           </div>
         </details>
-
-        <div class="form-group">
-          <label for="input-max-results">Max Results</label>
-          <select id="input-max-results">
-            <option value="10">10</option>
-            <option value="25" selected>25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
-        </div>
 
         <button id="btn-search" class="btn-primary">
           <span class="btn-icon">🔭</span> Find Dark Sites

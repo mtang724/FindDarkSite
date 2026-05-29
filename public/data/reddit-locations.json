@@ -1,0 +1,819 @@
+{
+  "source": "Reddit posts in 50 US city subreddits, queried for \"stargazing\", extracted via Claude.",
+  "attribution": "Posts: reddit.com authors. Extraction: anthropic.com. Geocoding: nominatim.openstreetmap.org (ODbL).",
+  "generatedAt": "2026-05-29T08:20:29.293Z",
+  "totalPlaces": 60,
+  "geocodedPlaces": 54,
+  "metros": [
+    {
+      "metro": "New York",
+      "state": "NY",
+      "places": [
+        {
+          "metro": "New York",
+          "state": "NY",
+          "name": "Montauk Point State Park",
+          "why": "Locals call the stretch by the water in Montauk incredible for stargazing; reachable without a car (LIRR).",
+          "sentiment": "positive",
+          "subreddit": "AskNYC",
+          "sourceUrl": "https://www.reddit.com/r/AskNYC/comments/1lopkoy/best_stargazing_spots_near_nyc_without_car/",
+          "lat": 41.07001,
+          "lng": -71.88526,
+          "displayName": "Montauk Point State Park, Montauk, Town of East Hampton, Suffolk County, New York, United States"
+        },
+        {
+          "metro": "New York",
+          "state": "NY",
+          "name": "Cherry Springs State Park",
+          "why": "~5 hour drive into PA, considered one of the best dark-sky areas on the East Coast.",
+          "sentiment": "positive",
+          "subreddit": "AskNYC",
+          "sourceUrl": "https://www.reddit.com/r/AskNYC/comments/1lopkoy/best_stargazing_spots_near_nyc_without_car/"
+        },
+        {
+          "metro": "New York",
+          "state": "NY",
+          "name": "Harriman State Park",
+          "why": "Closer dark-sky option than Cherry Springs, recommended for NYC stargazers.",
+          "sentiment": "positive",
+          "subreddit": "AskNYC",
+          "sourceUrl": "https://www.reddit.com/r/AskNYC/comments/1lopkoy/best_stargazing_spots_near_nyc_without_car/",
+          "lat": 41.23038,
+          "lng": -74.12479,
+          "displayName": "Harriman State Park, Town of Tuxedo, Town of Highlands, Orange County, New York, United States"
+        },
+        {
+          "metro": "New York",
+          "state": "NY",
+          "name": "Balsam Lake Mountain Wild Forest",
+          "why": "~3 hr drive; closest truly dark place to NYC per dark-sky maps (Catskills).",
+          "sentiment": "positive",
+          "subreddit": "AskNYC",
+          "sourceUrl": "https://www.reddit.com/r/AskNYC/comments/1mjul2h/stargazing_spots_in_the_city/",
+          "lat": 42.04697,
+          "lng": -74.66069,
+          "displayName": "Balsam Lake Mountain Wild Forest, Town of Andes, Town of Middletown, Ulster County, New York, United States"
+        },
+        {
+          "metro": "New York",
+          "state": "NY",
+          "name": "Jacob Riis Park",
+          "why": "Closest spot just outside the NYC glow for meteor showers, though boardwalk lights still leak.",
+          "sentiment": "mixed",
+          "subreddit": "AskNYC",
+          "sourceUrl": "https://www.reddit.com/r/AskNYC/comments/1mjul2h/stargazing_spots_in_the_city/",
+          "lat": 40.56865,
+          "lng": -73.8722,
+          "displayName": "Jacob Riis Park, Queens, Queens County, New York, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Los Angeles",
+      "state": "CA",
+      "places": [
+        {
+          "metro": "Los Angeles",
+          "state": "CA",
+          "name": "Joshua Tree National Park",
+          "why": "Top LA pick for true dark skies when you can drive 2+ hours out east.",
+          "sentiment": "positive",
+          "subreddit": "AskLosAngeles",
+          "sourceUrl": "https://www.reddit.com/r/AskLosAngeles/comments/1mmoens/where_to_stargaze_at_or_near_la/",
+          "lat": 33.89707,
+          "lng": -115.95112,
+          "displayName": "Joshua Tree National Park, California, United States"
+        },
+        {
+          "metro": "Los Angeles",
+          "state": "CA",
+          "name": "Big Bear Lake",
+          "why": "Best bet within LA County area thanks to elevation above the light dome.",
+          "sentiment": "positive",
+          "subreddit": "AskLosAngeles",
+          "sourceUrl": "https://www.reddit.com/r/AskLosAngeles/comments/1mmoens/where_to_stargaze_at_or_near_la/",
+          "lat": 34.24406,
+          "lng": -116.91018,
+          "displayName": "Big Bear Lake, San Bernardino County, California, 92315, United States"
+        },
+        {
+          "metro": "Los Angeles",
+          "state": "CA",
+          "name": "Anza-Borrego Desert State Park",
+          "why": "Called the absolute best bet for stargazing from LA; designated dark sky area.",
+          "sentiment": "positive",
+          "subreddit": "AskLosAngeles",
+          "sourceUrl": "https://www.reddit.com/r/AskLosAngeles/comments/1mmoens/where_to_stargaze_at_or_near_la/",
+          "lat": 33.09554,
+          "lng": -116.3019,
+          "displayName": "Anza-Borrego Desert State Park, San Diego County, California, 92934, United States"
+        },
+        {
+          "metro": "Los Angeles",
+          "state": "CA",
+          "name": "Pacific Coast Highway (Santa Monica to Oxnard)",
+          "why": "Dark quiet pullouts along PCH between Santa Monica and Oxnard give surprisingly good star views.",
+          "sentiment": "positive",
+          "subreddit": "AskLosAngeles",
+          "sourceUrl": "https://www.reddit.com/r/AskLosAngeles/comments/1mmoens/where_to_stargaze_at_or_near_la/"
+        },
+        {
+          "metro": "Los Angeles",
+          "state": "CA",
+          "name": "Mount Wilson",
+          "why": "Above-LA option from Altadena; can clear the smog/light dome but viewing is limited.",
+          "sentiment": "mixed",
+          "subreddit": "AskLosAngeles",
+          "sourceUrl": "https://www.reddit.com/r/AskLosAngeles/comments/1pm1l7w/spots_to_stargaze_tonight/",
+          "lat": 34.22387,
+          "lng": -118.06119,
+          "displayName": "Mount Wilson, Los Angeles County, California, 91023, United States"
+        },
+        {
+          "metro": "Los Angeles",
+          "state": "CA",
+          "name": "Angeles Crest Highway",
+          "why": "Drive up Angeles Crest to get above LA smog and city lights for meteor showers.",
+          "sentiment": "positive",
+          "subreddit": "AskLosAngeles",
+          "sourceUrl": "https://www.reddit.com/r/AskLosAngeles/comments/1pm1l7w/spots_to_stargaze_tonight/",
+          "lat": 34.21933,
+          "lng": -118.18984,
+          "displayName": "Angeles Crest Highway, La Cañada Flintridge, Los Angeles County, California, 91011, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Washington",
+      "state": "DC",
+      "places": [
+        {
+          "metro": "Washington",
+          "state": "DC",
+          "name": "Sky Meadows State Park",
+          "why": "Go-to dark-sky park outside DC for stargazing with telescopes.",
+          "sentiment": "positive",
+          "subreddit": "washingtondc",
+          "sourceUrl": "https://www.reddit.com/r/washingtondc/comments/1t7l0ba/spots_for_stargazing_around_dc/"
+        },
+        {
+          "metro": "Washington",
+          "state": "DC",
+          "name": "Fort Hunt Park",
+          "why": "Hosts summer stargazing nights in Alexandria, including a Summer Solstice event.",
+          "sentiment": "positive",
+          "subreddit": "washingtondc",
+          "sourceUrl": "https://www.reddit.com/r/washingtondc/comments/1l7hl58/stargazing_at_air_space_museum_reviews/"
+        },
+        {
+          "metro": "Washington",
+          "state": "DC",
+          "name": "Rock Creek Park",
+          "why": "National Capital Astronomers run telescope meetups here inside DC for casual viewing.",
+          "sentiment": "positive",
+          "subreddit": "washingtondc",
+          "sourceUrl": "https://www.reddit.com/r/washingtondc/comments/1lygj9h/stargazing_guide/",
+          "lat": 38.96185,
+          "lng": -77.04574,
+          "displayName": "Rock Creek Park, Ward 4, Washington, District of Columbia, United States"
+        },
+        {
+          "metro": "Washington",
+          "state": "DC",
+          "name": "Green Bank Observatory",
+          "why": "Weekend trip into WV's National Radio Quiet Zone; some of the darkest sky country on the East Coast.",
+          "sentiment": "positive",
+          "subreddit": "washingtondc",
+          "sourceUrl": "https://www.reddit.com/r/washingtondc/comments/1lygj9h/stargazing_guide/"
+        }
+      ]
+    },
+    {
+      "metro": "Miami",
+      "state": "FL",
+      "places": [
+        {
+          "metro": "Miami",
+          "state": "FL",
+          "name": "Bill Baggs Cape Florida State Park",
+          "why": "Hosts free monthly stargazing nights with amateur astronomers on Key Biscayne.",
+          "sentiment": "positive",
+          "subreddit": "Miami",
+          "sourceUrl": "https://www.reddit.com/r/Miami/comments/1qbyo4b/things_going_on_in_miami_114118/",
+          "lat": 25.67425,
+          "lng": -80.15796,
+          "displayName": "Bill Baggs Cape Florida State Park, Key Biscayne, Miami-Dade County, Florida, United States"
+        },
+        {
+          "metro": "Miami",
+          "state": "FL",
+          "name": "Big Pine Key",
+          "why": "Roads stay open and patrol is light; pull-off access on the Keys for late-night sky viewing.",
+          "sentiment": "positive",
+          "subreddit": "Miami",
+          "sourceUrl": "https://www.reddit.com/r/Miami/comments/1tnnj9h/nighttime_beach_access_near_miami/",
+          "lat": 24.68927,
+          "lng": -81.3689,
+          "displayName": "Big Pine Key, Monroe County, Florida, United States"
+        },
+        {
+          "metro": "Miami",
+          "state": "FL",
+          "name": "Bahia Honda State Park",
+          "why": "Excellent dark skies in the Keys but gates lock at sunset, so plan a workaround.",
+          "sentiment": "mixed",
+          "subreddit": "Miami",
+          "sourceUrl": "https://www.reddit.com/r/Miami/comments/1tnnj9h/nighttime_beach_access_near_miami/",
+          "lat": 24.66473,
+          "lng": -81.26152,
+          "displayName": "Bahia Honda State Park, Monroe County, Florida, United States"
+        },
+        {
+          "metro": "Miami",
+          "state": "FL",
+          "name": "Big Cypress National Preserve",
+          "why": "Locals call out Big Cypress as great stargazing within reach of Miami.",
+          "sentiment": "positive",
+          "subreddit": "Miami",
+          "sourceUrl": "https://www.reddit.com/r/Miami/comments/1tnnj9h/nighttime_beach_access_near_miami/",
+          "lat": 25.93612,
+          "lng": -81.09513,
+          "displayName": "Big Cypress National Preserve, 33100, Collier County, Florida, 34141, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Phoenix",
+      "state": "AZ",
+      "places": [
+        {
+          "metro": "Phoenix",
+          "state": "AZ",
+          "name": "South Mountain Park",
+          "why": "Best in-city option; elevation lets you rise above some of Phoenix's light pollution.",
+          "sentiment": "mixed",
+          "subreddit": "phoenix",
+          "sourceUrl": "https://www.reddit.com/r/phoenix/comments/1pigquj/phoenix_stargazing_close_to_city_center/",
+          "lat": 33.40002,
+          "lng": -112.00355,
+          "displayName": "Uncommon USA Inc, 5025, South 36th Street, Wier Thirty 6 Business Park, South Mountain, Phoenix, Maricopa County, Arizona, 85040, United States"
+        },
+        {
+          "metro": "Phoenix",
+          "state": "AZ",
+          "name": "Fountain Hills",
+          "why": "Designated International Dark Sky community east of Phoenix near the We-Ko-Pa area.",
+          "sentiment": "positive",
+          "subreddit": "phoenix",
+          "sourceUrl": "https://www.reddit.com/r/phoenix/comments/1pigquj/phoenix_stargazing_close_to_city_center/",
+          "lat": 33.61171,
+          "lng": -111.71736,
+          "displayName": "Fountain Hills, Maricopa County, Arizona, 85268, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Boston",
+      "state": "MA",
+      "places": [
+        {
+          "metro": "Boston",
+          "state": "MA",
+          "name": "Plum Island",
+          "why": "Coastal beach north of Boston, much darker than inland sites despite proximity.",
+          "sentiment": "positive",
+          "subreddit": "boston",
+          "sourceUrl": "https://www.reddit.com/r/boston/comments/1ovjxc6/where_do_you_go_to_stargaze/",
+          "lat": 42.75928,
+          "lng": -70.80202,
+          "displayName": "Plum Island, Newbury, Essex County, Massachusetts, United States"
+        },
+        {
+          "metro": "Boston",
+          "state": "MA",
+          "name": "Rockport",
+          "why": "Best option north of Boston (just past 45 min); faces away from most light pollution.",
+          "sentiment": "positive",
+          "subreddit": "boston",
+          "sourceUrl": "https://www.reddit.com/r/boston/comments/1ovjxc6/where_do_you_go_to_stargaze/",
+          "lat": 42.65721,
+          "lng": -70.61775,
+          "displayName": "Rockport, Essex County, Massachusetts, 01966, United States"
+        },
+        {
+          "metro": "Boston",
+          "state": "MA",
+          "name": "Nahant Beach",
+          "why": "Closest coastal stargazing to Boston; ocean view cuts light pollution.",
+          "sentiment": "positive",
+          "subreddit": "boston",
+          "sourceUrl": "https://www.reddit.com/r/boston/comments/1ovjxc6/where_do_you_go_to_stargaze/",
+          "lat": 42.44564,
+          "lng": -70.93848,
+          "displayName": "Nahant Beach, Little Nahant, Nahant, Essex County, Massachusetts, United States"
+        },
+        {
+          "metro": "Boston",
+          "state": "MA",
+          "name": "Scituate Beach",
+          "why": "South-of-Boston coastal spot with relatively isolated beaches good for stars.",
+          "sentiment": "positive",
+          "subreddit": "boston",
+          "sourceUrl": "https://www.reddit.com/r/boston/comments/1ovjxc6/where_do_you_go_to_stargaze/",
+          "lat": 42.23603,
+          "lng": -70.76012,
+          "displayName": "North Scituate Beach, Minot, Scituate, Plymouth County, Massachusetts, United States"
+        }
+      ]
+    },
+    {
+      "metro": "San Francisco",
+      "state": "CA",
+      "places": [
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Pigeon Point Lighthouse",
+          "why": "Pescadero coast spot where stars cover the whole sky on the ocean-facing side.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1qkzx62/stargazing_at_the_pescadero_lighthouse/",
+          "lat": 34.43109,
+          "lng": -114.31567,
+          "displayName": "Pigeon Point Lighthouse, Partners Point Road, Lake Havasu City, Mohave County, Arizona, 86403, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Mendocino Coast",
+          "why": "Top romantic getaway pick with ocean views and great stargazing 3 hrs north of SF.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1ocp95f/affordable_romantic_getaways_3hrs_from_sfsj/",
+          "lat": 39.40805,
+          "lng": -123.81553,
+          "displayName": "Mendocino Coast Botanical Gardens, 18220, Fort Bragg, Mendocino County, California, 95437, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Sonoma Coast State Park",
+          "why": "Coastal stretch with lots of good lodging and dark beaches within 3 hrs of SF.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1ocp95f/affordable_romantic_getaways_3hrs_from_sfsj/",
+          "lat": 38.42441,
+          "lng": -123.08832,
+          "displayName": "Sonoma Coast State Park, Carmet, Sonoma County, California, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Point Reyes National Seashore",
+          "why": "Bortle 3 dark skies on the coast within easy reach of the Bay Area.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1ld5z3m/stargazing_spots_in_east_bay/",
+          "lat": 38.07053,
+          "lng": -122.91761,
+          "displayName": "Point Reyes National Seashore, Point Reyes Station, Marin County, California, 94937, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Chabot Space and Science Center",
+          "why": "Oakland hills facility with public telescopes open late on weekend nights.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1ld5z3m/stargazing_spots_in_east_bay/",
+          "lat": 37.81846,
+          "lng": -122.18069,
+          "displayName": "Chabot Space and Science Center, 10000, Skyline Boulevard, Piedmont Pines, Oakland Hills, Oakland, Alameda County, California, 94516, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Pinnacles National Park",
+          "why": "Fantastic dark skies south of the Bay, popular for meteor-shower camping.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1lygi49/nearest_clear_skies_camping/",
+          "lat": 36.48625,
+          "lng": -121.17114,
+          "displayName": "Pinnacles National Park, San Benito County, California, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Del Valle Regional Park",
+          "why": "Nice and clear East Bay reservoir park, one of the closer dark-ish camping options.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1lygi49/nearest_clear_skies_camping/",
+          "lat": 37.59648,
+          "lng": -121.7062,
+          "displayName": "Del Valle Regional Park, Livermore, Alameda County, California, 94550, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Brannan Island State Recreation Area",
+          "why": "Reasonably close and dark Delta camping spot for Bay Area stargazers.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1lygi49/nearest_clear_skies_camping/",
+          "lat": 38.11469,
+          "lng": -121.69274,
+          "displayName": "Brannan Island State Recreation Area, Mackenson, Sacramento County, California, United States"
+        },
+        {
+          "metro": "San Francisco",
+          "state": "CA",
+          "name": "Rio Vista (Sacramento River Delta)",
+          "why": "Back roads off Hwy 12 south/west of Rio Vista give dark, quiet pullouts away from marine layer.",
+          "sentiment": "positive",
+          "subreddit": "bayarea",
+          "sourceUrl": "https://www.reddit.com/r/bayarea/comments/1mf6vk1/meteor_shower_location_recommendation/"
+        }
+      ]
+    },
+    {
+      "metro": "Seattle",
+      "state": "WA",
+      "places": [
+        {
+          "metro": "Seattle",
+          "state": "WA",
+          "name": "Rattlesnake Lake",
+          "why": "Drive east on I-90 to Rattlesnake Lake for dark spots within reach of Seattle.",
+          "sentiment": "positive",
+          "subreddit": "Seattle",
+          "sourceUrl": "https://www.reddit.com/r/Seattle/comments/1lbfyw7/tips_on_seeing_the_northern_lights_tonight/",
+          "lat": 47.43053,
+          "lng": -121.77414,
+          "displayName": "Rattlesnake Lake, Cedar Falls, King County, Washington, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Minneapolis",
+      "state": "MN",
+      "places": [
+        {
+          "metro": "Minneapolis",
+          "state": "MN",
+          "name": "Ward Lake Wildlife Management Area",
+          "why": "Open 24/7 WMA an hour-ish out; locals confirm it's a fabulous stargazing spot.",
+          "sentiment": "positive",
+          "subreddit": "minnesota",
+          "sourceUrl": "https://www.reddit.com/r/minnesota/comments/1oebzum/has_anyone_visited_ward_lake_wildlife_management/",
+          "lat": 44.62817,
+          "lng": -94.44413,
+          "displayName": "Ward Lake Wildlife Management Area, Bismarck Township, Sibley County, Minnesota, United States"
+        }
+      ]
+    },
+    {
+      "metro": "San Diego",
+      "state": "CA",
+      "places": [
+        {
+          "metro": "San Diego",
+          "state": "CA",
+          "name": "Mount Laguna",
+          "why": "Classic San Diego mountain stargazing spot ~1 hr east; cool nights and dark skies.",
+          "sentiment": "positive",
+          "subreddit": "sandiego",
+          "sourceUrl": "https://www.reddit.com/r/sandiego/comments/1p1t15s/stargazing_mt_laguna/",
+          "lat": 32.87112,
+          "lng": -116.42426,
+          "displayName": "Mount Laguna, San Diego County, California, 91948, United States"
+        },
+        {
+          "metro": "San Diego",
+          "state": "CA",
+          "name": "Anza-Borrego Desert State Park",
+          "why": "~2 hrs east of San Diego, designated dark-sky desert with warmer nights than the mountains.",
+          "sentiment": "positive",
+          "subreddit": "sandiego",
+          "sourceUrl": "https://www.reddit.com/r/sandiego/comments/1p1t15s/stargazing_mt_laguna/",
+          "lat": 33.09554,
+          "lng": -116.3019,
+          "displayName": "Anza-Borrego Desert State Park, San Diego County, California, 92934, United States"
+        },
+        {
+          "metro": "San Diego",
+          "state": "CA",
+          "name": "Julian",
+          "why": "About an hour east of San Diego in the mountains, popular dark-sky community.",
+          "sentiment": "positive",
+          "subreddit": "sandiego",
+          "sourceUrl": "https://www.reddit.com/r/sandiego/comments/1p1t15s/stargazing_mt_laguna/",
+          "lat": 33.07396,
+          "lng": -116.58785,
+          "displayName": "Julian, San Diego County, California, United States"
+        },
+        {
+          "metro": "San Diego",
+          "state": "CA",
+          "name": "Borrego Springs",
+          "why": "International Dark Sky Community in the desert; classic Perseid viewing base.",
+          "sentiment": "positive",
+          "subreddit": "sandiego",
+          "sourceUrl": "https://www.reddit.com/r/sandiego/comments/1mr0el3/best_stargazing_spots_in_anza_borrego_tonight/",
+          "lat": 33.25486,
+          "lng": -116.35695,
+          "displayName": "Borrego Springs, San Diego County, California, 92004, United States"
+        },
+        {
+          "metro": "San Diego",
+          "state": "CA",
+          "name": "Ocotillo",
+          "why": "Desert town with open skies; safer than the mountains in summer with no wildlife worries.",
+          "sentiment": "positive",
+          "subreddit": "sandiego",
+          "sourceUrl": "https://www.reddit.com/r/sandiego/comments/1p1t15s/stargazing_mt_laguna/",
+          "lat": 32.74165,
+          "lng": -116.0092,
+          "displayName": "Ocotillo, Imperial County, California, 92259, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Tampa",
+      "state": "FL",
+      "places": [
+        {
+          "metro": "Tampa",
+          "state": "FL",
+          "name": "Kissimmee Prairie Preserve State Park",
+          "why": "Dedicated stargazing section with headlight rules; ~2.5 hrs from Tampa and locals' top pick.",
+          "sentiment": "positive",
+          "subreddit": "tampa",
+          "sourceUrl": "https://www.reddit.com/r/tampa/comments/1p4woas/good_spots_for_a_stargazing/",
+          "lat": 27.56136,
+          "lng": -81.05705,
+          "displayName": "Kissimmee Prairie Preserve State Park, Okeechobee County, Florida, United States"
+        },
+        {
+          "metro": "Tampa",
+          "state": "FL",
+          "name": "Bahia Honda State Park",
+          "why": "Federal dark sky registry park in the Keys with southern-hemisphere constellations in winter.",
+          "sentiment": "positive",
+          "subreddit": "tampa",
+          "sourceUrl": "https://www.reddit.com/r/tampa/comments/1p4woas/good_spots_for_a_stargazing/",
+          "lat": 24.66473,
+          "lng": -81.26152,
+          "displayName": "Bahia Honda State Park, Monroe County, Florida, United States"
+        },
+        {
+          "metro": "Tampa",
+          "state": "FL",
+          "name": "Withlacoochee River Park",
+          "why": "Closer Tampa-area state park option mentioned for stargazing.",
+          "sentiment": "mixed",
+          "subreddit": "tampa",
+          "sourceUrl": "https://www.reddit.com/r/tampa/comments/1p4woas/good_spots_for_a_stargazing/",
+          "lat": 28.35155,
+          "lng": -82.12772,
+          "displayName": "Withlacoochee River Park, Auton Road, Pasco County, Florida, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Denver",
+      "state": "CO",
+      "places": [
+        {
+          "metro": "Denver",
+          "state": "CO",
+          "name": "Great Sand Dunes National Park",
+          "why": "Certified dark sky park; locals call out the dunes for unforgettable night skies.",
+          "sentiment": "positive",
+          "subreddit": "Denver",
+          "sourceUrl": "https://www.reddit.com/r/Denver/comments/1sajp6i/spots_for_western_sky_stargazing/",
+          "lat": 37.79119,
+          "lng": -105.61227,
+          "displayName": "Great Sand Dunes National Park, Saguache County, Colorado, United States"
+        },
+        {
+          "metro": "Denver",
+          "state": "CO",
+          "name": "Florissant Fossil Beds National Monument",
+          "why": "Closest certified dark sky park to Denver west of Pikes Peak; incredibly good without the long drive.",
+          "sentiment": "positive",
+          "subreddit": "Denver",
+          "sourceUrl": "https://www.reddit.com/r/Denver/comments/1sajp6i/spots_for_western_sky_stargazing/",
+          "lat": 38.91244,
+          "lng": -105.28143,
+          "displayName": "Florissant Fossil Beds National Monument, Florissant, Teller County, Colorado, United States"
+        },
+        {
+          "metro": "Denver",
+          "state": "CO",
+          "name": "Jones Pass",
+          "why": "Great high-altitude western-sky vantage; used for photographing comet Tsuchinshan-ATLAS.",
+          "sentiment": "positive",
+          "subreddit": "Denver",
+          "sourceUrl": "https://www.reddit.com/r/Denver/comments/1sajp6i/spots_for_western_sky_stargazing/",
+          "lat": 39.77391,
+          "lng": -105.8894,
+          "displayName": "Jones Pass, Clear Creek County, Colorado, United States"
+        },
+        {
+          "metro": "Denver",
+          "state": "CO",
+          "name": "Lake City",
+          "why": "Hosts an annual stargazing festival in summer; mountain town with very dark skies.",
+          "sentiment": "positive",
+          "subreddit": "Denver",
+          "sourceUrl": "https://www.reddit.com/r/Denver/comments/1ljm4jg/lake_city_stargazing_festival_this_weekend/",
+          "lat": 38.03047,
+          "lng": -107.31699,
+          "displayName": "Lake City, Hinsdale County, Colorado, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Baltimore",
+      "state": "MD",
+      "places": [
+        {
+          "metro": "Baltimore",
+          "state": "MD",
+          "name": "Green Ridge State Forest",
+          "why": "Long-time backpackers' go-to dark spot for stargazing; remote enough that AWD helps.",
+          "sentiment": "positive",
+          "subreddit": "baltimore",
+          "sourceUrl": "https://www.reddit.com/r/baltimore/comments/1ob8wlf/any_orionids_stargazing_parties/",
+          "lat": 39.62422,
+          "lng": -78.49174,
+          "displayName": "Green Ridge State Forest, Allegany County, Maryland, United States"
+        }
+      ]
+    },
+    {
+      "metro": "St. Louis",
+      "state": "MO",
+      "places": [
+        {
+          "metro": "St. Louis",
+          "state": "MO",
+          "name": "Tower Grove Park",
+          "why": "St. Louis Astronomical Society runs monthly family-friendly telescope nights here in the city.",
+          "sentiment": "positive",
+          "subreddit": "StLouis",
+          "sourceUrl": "https://www.reddit.com/r/StLouis/comments/1n6po0x/join_stl_cleanup_crew_this_saturday_evening_at/",
+          "lat": 38.60634,
+          "lng": -90.25529,
+          "displayName": "Tower Grove Park, 4257, Saint Louis, Missouri, 63110, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Orlando",
+      "state": "FL",
+      "places": [
+        {
+          "metro": "Orlando",
+          "state": "FL",
+          "name": "Kissimmee Prairie Preserve State Park",
+          "why": "Reservable astronomy pads for first-timers; Orlando's nearest true dark-sky park.",
+          "sentiment": "positive",
+          "subreddit": "orlando",
+          "sourceUrl": "https://www.reddit.com/r/orlando/comments/1qytsf8/stargazing_at_kissimmee_prep/",
+          "lat": 27.56136,
+          "lng": -81.05705,
+          "displayName": "Kissimmee Prairie Preserve State Park, Okeechobee County, Florida, United States"
+        }
+      ]
+    },
+    {
+      "metro": "San Antonio",
+      "state": "TX",
+      "places": [
+        {
+          "metro": "San Antonio",
+          "state": "TX",
+          "name": "Enchanted Rock State Natural Area",
+          "why": "International Dark Sky Park ~1.5 hrs away with regular star party events.",
+          "sentiment": "positive",
+          "subreddit": "sanantonio",
+          "sourceUrl": "https://www.reddit.com/r/sanantonio/comments/1qy366g/stargazing_spots/",
+          "lat": 30.50463,
+          "lng": -98.82322,
+          "displayName": "Enchanted Rock State Natural Area, Llano County, Texas, United States"
+        },
+        {
+          "metro": "San Antonio",
+          "state": "TX",
+          "name": "Hill Country State Natural Area",
+          "why": "Locals' first answer for safe stargazing in the Boerne/Bandera direction.",
+          "sentiment": "positive",
+          "subreddit": "sanantonio",
+          "sourceUrl": "https://www.reddit.com/r/sanantonio/comments/1l98zce/stargazing_location_near_san_antonio/",
+          "lat": 29.63178,
+          "lng": -99.19632,
+          "displayName": "Hill Country State Natural Area, 10600, Bandera, Bandera County, Texas, 78003, United States"
+        },
+        {
+          "metro": "San Antonio",
+          "state": "TX",
+          "name": "Lost Maples State Natural Area",
+          "why": "Designated dark sky area in the Hill Country northwest of San Antonio.",
+          "sentiment": "positive",
+          "subreddit": "sanantonio",
+          "sourceUrl": "https://www.reddit.com/r/sanantonio/comments/1l98zce/stargazing_location_near_san_antonio/",
+          "lat": 29.82093,
+          "lng": -99.5875,
+          "displayName": "Lost Maples State Natural Area, 37221, Bandera County, Texas, 78885, United States"
+        },
+        {
+          "metro": "San Antonio",
+          "state": "TX",
+          "name": "Garner State Park",
+          "why": "Pretty good dark-sky park option in the Hill Country for San Antonio locals.",
+          "sentiment": "positive",
+          "subreddit": "sanantonio",
+          "sourceUrl": "https://www.reddit.com/r/sanantonio/comments/1qy366g/stargazing_spots/",
+          "lat": 29.58826,
+          "lng": -99.73728,
+          "displayName": "Garner State Park, 234, Concan, Uvalde County, Texas, 78838, United States"
+        },
+        {
+          "metro": "San Antonio",
+          "state": "TX",
+          "name": "Old Tunnel State Park",
+          "why": "Close-in Hill Country pick if you want dark sky inside an hour from San Antonio.",
+          "sentiment": "positive",
+          "subreddit": "sanantonio",
+          "sourceUrl": "https://www.reddit.com/r/sanantonio/comments/1qy366g/stargazing_spots/",
+          "lat": 30.10033,
+          "lng": -98.82077,
+          "displayName": "Old Tunnel State Park, Mt. Alamo, Kendall County, Texas, United States"
+        },
+        {
+          "metro": "San Antonio",
+          "state": "TX",
+          "name": "Fredericksburg",
+          "why": "Hill Country town ~1.5 hrs north with amazing dark skies just outside town.",
+          "sentiment": "positive",
+          "subreddit": "sanantonio",
+          "sourceUrl": "https://www.reddit.com/r/sanantonio/comments/1qy366g/stargazing_spots/",
+          "lat": 30.2752,
+          "lng": -98.87198,
+          "displayName": "Fredericksburg, Gillespie County, Texas, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Pittsburgh",
+      "state": "PA",
+      "places": [
+        {
+          "metro": "Pittsburgh",
+          "state": "PA",
+          "name": "Riverview Park",
+          "why": "Hosts SpaceBurgh free annual telescope/stargazing event in the city.",
+          "sentiment": "positive",
+          "subreddit": "pittsburgh",
+          "sourceUrl": "https://www.reddit.com/r/pittsburgh/comments/1noxkos/spaceburgh/",
+          "lat": 40.39259,
+          "lng": -75.95882,
+          "displayName": "Riverview Park, Muhlenberg Park, Muhlenberg Township, Berks County, Pennsylvania, 19605, United States"
+        },
+        {
+          "metro": "Pittsburgh",
+          "state": "PA",
+          "name": "Cherry Springs State Park",
+          "why": "Legendary East Coast dark-sky park ~3 hrs away; stay in nearby Coudersport/Galeton in winter.",
+          "sentiment": "positive",
+          "subreddit": "pittsburgh",
+          "sourceUrl": "https://www.reddit.com/r/pittsburgh/comments/1pz3s4n/any_good_weekend_getaway_ideas_within_3_hour/",
+          "lat": 41.66276,
+          "lng": -77.8222,
+          "displayName": "Cherry Springs State Park, West Branch Township, Potter County, Pennsylvania, United States"
+        }
+      ]
+    },
+    {
+      "metro": "Las Vegas",
+      "state": "NV",
+      "places": [
+        {
+          "metro": "Las Vegas",
+          "state": "NV",
+          "name": "Death Valley National Park",
+          "why": "Locals' default Las Vegas stargazing day-trip and tour destination.",
+          "sentiment": "positive",
+          "subreddit": "vegas",
+          "sourceUrl": "https://www.reddit.com/r/vegas/comments/1r0604v/death_valley_stargazing_tour/",
+          "lat": 36.83145,
+          "lng": -116.8816,
+          "displayName": "Death Valley National Park, Beatty Entrance Sign Parking, Nye County, Nevada, United States"
+        }
+      ]
+    }
+  ]
+}

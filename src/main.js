@@ -15,6 +15,8 @@ import { renderHorizonSvg } from './horizon.js';
 import { seeingLabel, transparencyLabel } from './astroWeather.js';
 import { resolveLocation, parseCoords } from './geocode.js';
 import { loadDarkSkyPlaces, placesNear, designationMeta } from './darkSkyPlaces.js';
+import { loadSqmReports, reportsNear, bestNearbyMeasurement, sqmColor } from './sqmReports.js';
+import { loadRedditLocations, nearestCoveredMetro, sentimentColor } from './redditLocations.js';
 import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
@@ -22,6 +24,11 @@ let map, searchCircle, markersGroup;
 let protectedLayer;          // L.layerGroup for protected-area polygons
 let darkSkyLayer;            // L.layerGroup for IDA-certified Dark Sky Places
 let darkSkyPlaces = [];      // cached list from /data/dark-sky-places.json
+let sqmReportsLayer;         // L.layerGroup for GLOBE at Night user reports
+let sqmReports = [];         // cached list from /data/sqm-reports.json
+let redditLayer;             // L.layerGroup for Reddit "locals say" pins
+let redditData = null;       // entire reddit-locations.json
+let activeRedditMetro = null; // last surfaced metro entry
 let siteMarkers = [];       // Leaflet markers indexed by site position in currentResults.sites
 let activeSiteIndex = null;
 let currentResults = null;
@@ -81,18 +88,27 @@ function initMap() {
   // IDA-certified Dark Sky Places overlay (populated once on load)
   darkSkyLayer = L.layerGroup();
 
+  // GLOBE at Night citizen-science SQM reports (populated once on load)
+  sqmReportsLayer = L.layerGroup();
+
+  // Reddit "locals say" pins — populated per-search based on the user's nearest metro
+  redditLayer = L.layerGroup();
+
   L.control.layers({
     'Dark': dark,
     'Satellite': satellite,
   }, {
     '🟢 Public lands': protectedLayer,
     '🌌 IDA Dark Sky Places': darkSkyLayer,
+    '📍 SQM measurements (GLOBE at Night)': sqmReportsLayer,
+    '🗣️ Reddit recommendations': redditLayer,
   }, { position: 'topright' }).addTo(map);
 
   markersGroup = L.layerGroup().addTo(map);
-  // Show the overlays by default
+  // Show the IDA + Reddit overlays by default; SQM layer is opt-in (10k+ points).
   protectedLayer.addTo(map);
   darkSkyLayer.addTo(map);
+  redditLayer.addTo(map);
 }
 
 // ─── UI Element References ───────────────────────────────────────────────
@@ -600,12 +616,42 @@ async function startSearch() {
       }
     });
 
+    // Find the nearest covered metro for this user and stash for renderResults
+    // / map markers. Distance cap of 250 km keeps "covered" to the actual
+    // surrounding metro area, not a tangentially-related one.
+    if (redditData) {
+      activeRedditMetro = nearestCoveredMetro(redditData, userLat, userLng, 250);
+    }
+
     // Enrich each site with its nearest IDA-certified Dark Sky Place (if any
     // within 25 km). Cheap in-memory lookup, doesn't touch the network.
     if (darkSkyPlaces.length) {
       for (const s of result.sites) {
         const near = placesNear(darkSkyPlaces, s.lat, s.lng, 25);
         if (near.length) s.darkSkyPlace = near[0];
+      }
+    }
+    // Attach the best nearby GLOBE-at-Night SQM measurement (within 15 km).
+    // This is a real human/instrument reading that independently validates
+    // (or contradicts) the satellite-derived SQM.
+    if (sqmReports.length) {
+      for (const s of result.sites) {
+        const best = bestNearbyMeasurement(sqmReports, s.lat, s.lng, 15);
+        if (best) s.sqmReport = best;
+      }
+    }
+    // Attach the nearest Reddit-vetted spot (within 30 km) so the scorer can
+    // bump community-validated sites in the Best Nights ranking.
+    if (activeRedditMetro?.places?.length) {
+      for (const s of result.sites) {
+        let best = null;
+        let bestD = Infinity;
+        for (const p of activeRedditMetro.places) {
+          if (p.lat == null || p.lng == null) continue;
+          const d = haversineDistance(s.lat, s.lng, p.lat, p.lng);
+          if (d < bestD && d <= 30) { bestD = d; best = p; }
+        }
+        if (best) s.nearestRedditSpot = { ...best, distanceKm: bestD };
       }
     }
 
@@ -657,6 +703,10 @@ function renderResults({ sites, stats }) {
   if (stats.overpassError) {
     $('#btn-retry-overpass')?.addEventListener('click', retryOverpassOnly);
   }
+
+  // Reddit "locals say" section — pinned to the user's nearest covered metro.
+  // Renders above the cards so users see vetted spots before scrolling.
+  renderRedditSection();
 
   // View toggle (only meaningful when at least one site has a forecast)
   const anyForecast = sites.some(s => s.forecast?.length);
@@ -744,6 +794,79 @@ function renderResults({ sites, stats }) {
       const ok = await copyToClipboard(url);
       showToast(ok ? '🔗 Share link copied!' : '🔗 Copy failed — link shown in console');
       if (!ok) console.log('Share URL:', url);
+    });
+  });
+}
+
+/**
+ * Render the "🗣️ Locals say…" section into a slot above the results list,
+ * pulling from `activeRedditMetro`. Idempotent: calling it again clears the
+ * previous section first. Also drops map pins for every located spot.
+ */
+function renderRedditSection() {
+  const listEl = $('#results-list');
+  // Reset map pins + remove any previous section
+  redditLayer.clearLayers();
+  document.querySelector('.reddit-section')?.remove();
+  if (!activeRedditMetro?.places?.length) return;
+
+  const rows = activeRedditMetro.places
+    .slice()
+    .sort((a, b) => (a.sentiment === 'positive' ? -1 : 1) - (b.sentiment === 'positive' ? -1 : 1));
+
+  // Drop a pin per geocoded spot
+  for (const p of rows) {
+    if (p.lat == null || p.lng == null) continue;
+    const color = p.sentiment === 'positive' ? '#34d399' : p.sentiment === 'negative' ? '#f87171' : '#fbbf24';
+    const marker = L.marker([p.lat, p.lng], {
+      icon: L.divIcon({
+        className: 'reddit-marker',
+        html: `<div style="background:${color};width:14px;height:14px;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px ${color};"></div>`,
+        iconSize: [16, 16],
+        iconAnchor: [8, 8],
+      }),
+    });
+    marker.bindPopup(
+      `<div class="popup-title">🗣️ ${escapeHtml(p.name)}</div>`
+      + `<div style="font-size:12px;color:#cbd5e1;margin:4px 0">${escapeHtml(p.why)}</div>`
+      + (p.sourceUrl ? `<a class="popup-link" href="${escapeHtml(p.sourceUrl)}" target="_blank" rel="noopener">📄 Reddit thread</a>` : '')
+    );
+    marker.addTo(redditLayer);
+  }
+
+  // Render the panel
+  const section = document.createElement('div');
+  section.className = 'reddit-section';
+  section.innerHTML = `
+    <div class="reddit-section-header">
+      🗣️ Locals say — <strong>${escapeHtml(activeRedditMetro.metro)}, ${escapeHtml(activeRedditMetro.state)}</strong>
+      <span class="reddit-section-meta">${rows.length} spots from r/${escapeHtml(activeRedditMetro.places[0]?.subreddit || activeRedditMetro.metro)}</span>
+    </div>
+    <div class="reddit-section-body">
+      ${rows.map(p => `
+        <a class="reddit-row" href="${escapeHtml(p.sourceUrl || '#')}" target="_blank" rel="noopener"
+           data-lat="${p.lat ?? ''}" data-lng="${p.lng ?? ''}">
+          <span class="reddit-dot" style="background:${p.sentiment === 'positive' ? '#34d399' : p.sentiment === 'negative' ? '#f87171' : '#fbbf24'}"></span>
+          <span class="reddit-body">
+            <strong>${escapeHtml(p.name)}</strong>
+            <span class="reddit-why">${escapeHtml(p.why)}</span>
+          </span>
+          <span class="reddit-meta">r/${escapeHtml(p.subreddit || '?')}</span>
+        </a>
+      `).join('')}
+    </div>
+  `;
+  listEl.parentNode.insertBefore(section, listEl);
+
+  // Click a row → pan the map to that pin (link still works for sourceUrl in new tab)
+  section.querySelectorAll('.reddit-row[data-lat]').forEach(a => {
+    a.addEventListener('click', (e) => {
+      const lat = parseFloat(a.dataset.lat);
+      const lng = parseFloat(a.dataset.lng);
+      if (!isFinite(lat) || !isFinite(lng)) return;
+      if (e.ctrlKey || e.metaKey || e.shiftKey) return; // let modifier-click open link
+      e.preventDefault();
+      map.setView([lat, lng], 11);
     });
   });
 }
@@ -840,6 +963,16 @@ function renderSiteCard(site, index) {
         : `${closest.distanceKm.toFixed(1)} km`;
       metaParts.push(`<span class="card-meta-item reach-good" title="IDA-certified ${meta.label}" style="color:${meta.color}">${meta.icon} ${escapeHtml(closest.name)} <strong>${escapeHtml(dist)}</strong></span>`);
     }
+  }
+  // GLOBE at Night nearby measurement — real human-observed signal that
+  // confirms (or undermines) the satellite SQM model.
+  if (site.sqmReport) {
+    const r = site.sqmReport;
+    const readingLabel = r.sqm != null
+      ? `SQM <strong>${r.sqm.toFixed(2)}</strong>`
+      : `NELM <strong>${r.limitingMag}</strong>`;
+    const dKm = r.distanceKm?.toFixed(1) ?? '?';
+    metaParts.push(`<span class="card-meta-item reach-good" title="GLOBE at Night observation${r.comment ? ': ' + r.comment.replace(/[<>"']/g, '') : ''}" style="color:${sqmColor(r.sqm)}">📍 measured ${readingLabel} ${dKm} km away</span>`);
   }
   // Road surface
   if (site.roadSurface) {
@@ -1359,6 +1492,35 @@ loadScanIndex().then(() => {
   // Both `handleSharedSiteHash` and `autoSelectScan` may depend on the scan list
   handleSharedSiteHash();
   autoSelectScan({ silent: true });
+});
+
+// Load Reddit "locals say" stargazing spots once on app start. The actual
+// rendering of pins happens per-search, scoped to the nearest covered metro.
+loadRedditLocations().then(d => { redditData = d; });
+
+// Load + paint the GLOBE at Night citizen-science SQM reports. Hidden by
+// default — user opts in via the layer control because the dataset is big.
+loadSqmReports().then(reports => {
+  sqmReports = reports;
+  for (const r of reports) {
+    const color = sqmColor(r.sqm);
+    const m = L.circleMarker([r.lat, r.lng], {
+      radius: 4,
+      color,
+      fillColor: color,
+      fillOpacity: 0.7,
+      weight: 1,
+      pane: 'overlayPane',
+    });
+    const sqmLine = r.sqm != null ? `SQM ${r.sqm.toFixed(2)} mag/arcsec²` : `Naked-eye LM ${r.limitingMag}`;
+    m.bindTooltip(
+      `<strong>${sqmLine}</strong>`
+      + (r.date ? `<br><span style="opacity:0.7">${r.date}</span>` : '')
+      + (r.comment ? `<br><span style="opacity:0.85">${r.comment.replace(/[<>]/g, '')}</span>` : ''),
+      { direction: 'top', offset: [0, -4] }
+    );
+    m.addTo(sqmReportsLayer);
+  }
 });
 
 // Bake IDA-certified Dark Sky Places onto the map as soon as we have them.

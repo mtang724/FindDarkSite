@@ -24,6 +24,11 @@ scanner/viirs/cache/
 # World Atlas 2015 derived scans — Falchi license prohibits redistribution; keep local only
 public/data/*worldatlas*.json
 
+# Reddit raw scrape + LLM-extracted intermediate cache.
+# The shippable derivative lives at public/data/reddit-locations.json;
+# the cache files are regeneratable via scripts/fetch-reddit-stargazing.mjs.
+scripts/.cache/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
