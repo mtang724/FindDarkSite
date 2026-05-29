@@ -94,3 +94,66 @@ export const CITY_SEARCH_QUERIES = [
     'dark sky',
     'milky way',
 ];
+
+// ───────────────────────────────────────────────────────────────────────────
+// Extras used only by scripts/fetch-reddit-deep.mjs — kept separate so the
+// existing wide / slow scrapers retain their original behavior exactly.
+// ───────────────────────────────────────────────────────────────────────────
+
+/**
+ * Mid-size cities specifically chosen for proximity to genuinely dark regions
+ * (national parks, BLM, mountain ranges, IDA-certified areas). The original
+ * US_METROS is "biggest 50 by population"; this list is "best 35 by sky access".
+ */
+export const EXTRA_METROS = [
+    { city: 'Tucson',         state: 'AZ', lat: 32.2226, lng: -110.9747, subreddits: ['Tucson'],                    region: 'arizona' },
+    { city: 'Flagstaff',      state: 'AZ', lat: 35.1983, lng: -111.6513, subreddits: ['flagstaff'],                 region: 'arizona' },
+    { city: 'Sedona',         state: 'AZ', lat: 34.8697, lng: -111.7610, subreddits: ['Sedona'],                    region: 'arizona' },
+    { city: 'Albuquerque',    state: 'NM', lat: 35.0844, lng: -106.6504, subreddits: ['Albuquerque'],               region: 'NewMexico' },
+    { city: 'Santa Fe',       state: 'NM', lat: 35.6870, lng: -105.9378, subreddits: ['SantaFe'],                   region: 'NewMexico' },
+    { city: 'Las Cruces',     state: 'NM', lat: 32.3199, lng: -106.7637, subreddits: ['LasCruces'],                 region: 'NewMexico' },
+    { city: 'Reno',           state: 'NV', lat: 39.5296, lng: -119.8138, subreddits: ['Reno'],                      region: 'Nevada' },
+    { city: 'Boise',          state: 'ID', lat: 43.6150, lng: -116.2023, subreddits: ['Boise'],                     region: 'Idaho' },
+    { city: 'El Paso',        state: 'TX', lat: 31.7619, lng: -106.4850, subreddits: ['ElPaso'],                    region: 'texas' },
+    { city: 'Bend',           state: 'OR', lat: 44.0582, lng: -121.3153, subreddits: ['Bend'],                      region: 'oregon' },
+    { city: 'Eugene',         state: 'OR', lat: 44.0521, lng: -123.0868, subreddits: ['Eugene'],                    region: 'oregon' },
+    { city: 'Spokane',        state: 'WA', lat: 47.6588, lng: -117.4260, subreddits: ['Spokane'],                   region: 'WashingtonState' },
+    { city: 'Bozeman',        state: 'MT', lat: 45.6770, lng: -111.0429, subreddits: ['Bozeman'],                   region: 'Montana' },
+    { city: 'Missoula',       state: 'MT', lat: 46.8721, lng: -113.9940, subreddits: ['missoula'],                  region: 'Montana' },
+    { city: 'Billings',       state: 'MT', lat: 45.7833, lng: -108.5007, subreddits: ['billings'],                  region: 'Montana' },
+    { city: 'Helena',         state: 'MT', lat: 46.5891, lng: -112.0391, subreddits: ['Helena'],                    region: 'Montana' },
+    { city: 'Cheyenne',       state: 'WY', lat: 41.1400, lng: -104.8202, subreddits: ['cheyenne'],                  region: 'wyoming' },
+    { city: 'Casper',         state: 'WY', lat: 42.8666, lng: -106.3131, subreddits: ['casperwyoming'],             region: 'wyoming' },
+    { city: 'Moab',           state: 'UT', lat: 38.5733, lng: -109.5498, subreddits: ['moab'],                      region: 'Utah' },
+    { city: 'St. George',     state: 'UT', lat: 37.0965, lng: -113.5684, subreddits: ['StGeorge'],                  region: 'Utah' },
+    { city: 'Anchorage',      state: 'AK', lat: 61.2181, lng: -149.9003, subreddits: ['anchorage', 'alaska'],       region: 'alaska' },
+    { city: 'Fairbanks',      state: 'AK', lat: 64.8378, lng: -147.7164, subreddits: ['Fairbanks'],                 region: 'alaska' },
+    { city: 'Honolulu',       state: 'HI', lat: 21.3099, lng: -157.8581, subreddits: ['Hawaii'],                    region: 'Hawaii' },
+    { city: 'Asheville',      state: 'NC', lat: 35.5951, lng:  -82.5515, subreddits: ['asheville'],                 region: 'NorthCarolina' },
+    { city: 'Knoxville',      state: 'TN', lat: 35.9606, lng:  -83.9207, subreddits: ['Knoxville'],                 region: 'Tennessee' },
+    { city: 'Lexington',      state: 'KY', lat: 38.0406, lng:  -84.5037, subreddits: ['lexington'],                 region: 'Kentucky' },
+    { city: 'Madison',        state: 'WI', lat: 43.0731, lng:  -89.4012, subreddits: ['madisonwi'],                 region: 'wisconsin' },
+    { city: 'Des Moines',     state: 'IA', lat: 41.5868, lng:  -93.6250, subreddits: ['desmoines', 'Iowa'],         region: 'Iowa' },
+    { city: 'Omaha',          state: 'NE', lat: 41.2565, lng:  -95.9345, subreddits: ['Omaha'],                     region: 'Nebraska' },
+    { city: 'Wichita',        state: 'KS', lat: 37.6872, lng:  -97.3301, subreddits: ['wichita'],                   region: 'Kansas' },
+    { city: 'Tulsa',          state: 'OK', lat: 36.1540, lng:  -95.9928, subreddits: ['tulsa'],                     region: 'oklahoma' },
+    { city: 'Little Rock',    state: 'AR', lat: 34.7465, lng:  -92.2896, subreddits: ['LittleRock', 'Arkansas'],    region: 'Arkansas' },
+    { city: 'Fargo',          state: 'ND', lat: 46.8772, lng:  -96.7898, subreddits: ['FargoFM'],                   region: 'northdakota' },
+    { city: 'Sioux Falls',    state: 'SD', lat: 43.5460, lng:  -96.7313, subreddits: ['SiouxFalls'],                region: 'SouthDakota' },
+    { city: 'Rapid City',     state: 'SD', lat: 44.0805, lng: -103.2310, subreddits: ['RapidCity'],                 region: 'SouthDakota' },
+];
+
+/** Additional astronomy-focused national subs for the deep sweep. */
+export const EXTRA_NATIONAL_SUBS = [
+    'stargazing',
+    'Astronomy',
+    'telescopes',
+    'NightPhotography',
+];
+
+/** Extra query phrases beyond the original 3. */
+export const EXTRA_QUERIES = [
+    'observatory',
+    'telescope',
+    'night sky',
+];
