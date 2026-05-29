@@ -168,6 +168,18 @@ html, body {
   .moon-chip { display: none; }
 }
 
+.offline-chip {
+  display: flex;
+  align-items: center;
+  padding: 5px 10px;
+  border: 1px solid rgba(248, 113, 113, 0.4);
+  border-radius: var(--radius-md);
+  background: rgba(248, 113, 113, 0.1);
+  font-size: 12px;
+  color: var(--accent-danger);
+  white-space: nowrap;
+}
+
 /* ─── Sidebar ───────────────────────────────────────────────────────────── */
 
 #sidebar {
@@ -629,6 +641,125 @@ select {
   margin-top: 2px;
 }
 
+/* ─── View Toggle (By Site / Best Nights) ───────────────────────────────── */
+
+.view-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 12px;
+  padding: 3px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-color);
+}
+
+.view-toggle-btn {
+  flex: 1;
+  padding: 6px 10px;
+  background: transparent;
+  border: none;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  font-family: var(--font-sans);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.view-toggle-btn:hover {
+  color: var(--text-secondary);
+}
+
+.view-toggle-btn.active {
+  background: var(--bg-secondary);
+  color: var(--accent-primary);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Night row in Best-Nights view */
+.night-row {
+  display: grid;
+  grid-template-columns: 28px 56px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  margin-bottom: 8px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s;
+  backdrop-filter: blur(10px);
+}
+
+.night-row:hover {
+  border-color: var(--accent-primary);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-glow);
+}
+
+.night-rank {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.night-score {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  padding: 6px 4px;
+  border-radius: var(--radius-sm);
+}
+
+.night-score.score-good { color: var(--accent-success); background: rgba(52, 211, 153, 0.1); }
+.night-score.score-ok   { color: var(--accent-warning); background: rgba(251, 191, 36, 0.1); }
+.night-score.score-bad  { color: var(--accent-danger);  background: rgba(248, 113, 113, 0.1); }
+
+.night-line-1 strong {
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.night-site {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.night-line-2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.night-reason {
+  display: inline-block;
+  padding: 2px 7px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: 10px;
+  color: var(--text-secondary);
+}
+
+.night-weakest {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.night-weakest strong {
+  color: var(--text-secondary);
+  font-weight: 600;
+}
+
 /* ─── Result Cards ──────────────────────────────────────────────────────── */
 
 .results-list {
@@ -763,6 +894,50 @@ select {
   gap: 8px;
   color: var(--text-muted);
   font-size: 11px;
+}
+
+/* Card body row that puts meta+forecast on the left, horizon polar on the right */
+.card-row-flex {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.card-row-flex-main {
+  flex: 1;
+  min-width: 0;
+}
+
+.card-horizon {
+  flex-shrink: 0;
+  width: 110px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.horizon-svg {
+  width: 100%;
+  height: auto;
+  max-width: 110px;
+}
+
+.horizon-svg .horizon-label {
+  font-family: var(--font-sans);
+  font-size: 9px;
+  fill: var(--text-muted);
+}
+
+.card-meta-item.horizon-good { color: var(--accent-success); }
+.card-meta-item.horizon-good strong { color: var(--accent-success); }
+.card-meta-item.horizon-ok   { color: var(--accent-warning); }
+.card-meta-item.horizon-ok   strong { color: var(--accent-warning); }
+.card-meta-item.horizon-bad  { color: var(--accent-danger); }
+.card-meta-item.horizon-bad  strong { color: var(--accent-danger); }
+
+@media (max-width: 480px) {
+  .card-row-flex { flex-direction: column; }
+  .card-horizon { width: 100%; max-width: 110px; align-self: center; }
 }
 
 /* Per-site meta row: elevation, drive time, weather summary */

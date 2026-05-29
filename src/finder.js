@@ -11,6 +11,7 @@ import { searchNearbyPOIsBatch, searchRIDBCampgrounds } from './poiSearch.js';
 import { fetchElevations } from './elevation.js';
 import { fetchForecastsBatch } from './weather.js';
 import { fetchDrivingTimes } from './routing.js';
+import { computeHorizonsBatch } from './horizon.js';
 
 /**
  * @typedef {Object} FinderOptions
@@ -28,6 +29,8 @@ import { fetchDrivingTimes } from './routing.js';
  * @property {number} [minElevationM] - drop seeds below this elevation (default 0 = no filter)
  * @property {boolean} [enrichWeather] - fetch cloud-cover forecast for top N (default true)
  * @property {boolean} [enrichDriving] - fetch driving time for top N (default true)
+ * @property {boolean} [enrichHorizon] - sample DEM horizon profile for top N (default true)
+ * @property {number}  [maxHorizonDeg] - drop final sites whose worst horizon angle > this (0 = no filter)
  * @property {Function} onProgress
  * @property {Function} onStageChange
  */
@@ -47,6 +50,8 @@ export async function findDarkSites(options) {
         minElevationM = 0,
         enrichWeather = true,
         enrichDriving = true,
+        enrichHorizon = true,
+        maxHorizonDeg = 0,
         signal,
         onProgress, onStageChange
     } = options;
@@ -206,21 +211,44 @@ export async function findDarkSites(options) {
     }
     throwIfAborted();
 
+    if (enrichHorizon && topSites.length > 0) {
+        onStageChange?.('horizon', `Sampling horizon DEM for top ${topSites.length}...`);
+        try {
+            const horizons = await computeHorizonsBatch(
+                topSites.map(s => ({ lat: s.lat, lng: s.lng, elevationM: s.elevationM })),
+                signal,
+                (done, total) => onProgress?.(done, total, `Horizon: ${done}/${total}`)
+            );
+            topSites.forEach((s, i) => { s.horizon = horizons[i] || null; });
+        } catch (err) {
+            if (err.name === 'AbortError') throw err;
+            console.warn('Horizon enrichment failed:', err.message);
+        }
+    }
+    throwIfAborted();
+
+    // Optional horizon filter — apply only to the enriched (top) sites that
+    // have a horizon profile; unprofiled sites pass through.
+    let displaySites = finalSites;
+    if (maxHorizonDeg > 0) {
+        displaySites = finalSites.filter(s => s.horizon == null || s.horizon.maxAngle <= maxHorizonDeg);
+    }
+
     // Stats
     const stats = {
         totalScanned: allPoints.length,
         seedsFound: seeds.length,
-        sitesWithFacilities: finalSites.filter(s => s.hasNearbyFacilities).length,
-        sitesWithoutFacilities: finalSites.filter(s => !s.hasNearbyFacilities).length,
-        totalPOIs: finalSites.reduce((sum, s) => sum + s.pois.length, 0),
-        bestSqm: finalSites.length ? Math.max(...finalSites.map(s => s.sqm)) : null,
-        bestBortle: finalSites.length ? Math.min(...finalSites.map(s => s.bortle)) : null,
+        sitesWithFacilities: displaySites.filter(s => s.hasNearbyFacilities).length,
+        sitesWithoutFacilities: displaySites.filter(s => !s.hasNearbyFacilities).length,
+        totalPOIs: displaySites.reduce((sum, s) => sum + s.pois.length, 0),
+        bestSqm: displaySites.length ? Math.max(...displaySites.map(s => s.sqm)) : null,
+        bestBortle: displaySites.length ? Math.min(...displaySites.map(s => s.bortle)) : null,
         overpassError, // null on success, error message string when every Overpass call failed
     };
 
     onStageChange?.('done', `Found ${finalSites.length} recommended sites!`);
 
-    return { sites: finalSites, stats };
+    return { sites: displaySites, stats };
 }
 
 /**

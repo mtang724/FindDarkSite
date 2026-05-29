@@ -10,6 +10,8 @@ import { categorizePOI, searchNearbyPOIsBatch } from './poiSearch.js';
 import { moonSummary, darknessWindow, formatLocalTime } from './astronomy.js';
 import { bestNight } from './weather.js';
 import { formatDriveTime } from './routing.js';
+import { nightScore, rankSiteNights } from './scoring.js';
+import { renderHorizonSvg } from './horizon.js';
 import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
@@ -24,6 +26,7 @@ let autoSelectedScan = null;   // The scan metadata picked by autoSelectScan, fo
 let userLat = null, userLng = null;
 let favorites = JSON.parse(localStorage.getItem('darksite-favorites') || '[]');
 let activePanel = 'search'; // 'search' | 'results' | 'favorites'
+let resultsView = 'sites';  // 'sites' | 'nights'
 let currentAbortController = null;
 
 // ─── Config (inline — user edits this or uses config.js) ─────────────────
@@ -103,6 +106,14 @@ function initUI() {
   const elevValue = $('#elev-value');
   elevSlider.addEventListener('input', () => {
     elevValue.textContent = elevSlider.value;
+  });
+
+  // Max-horizon slider
+  const horSlider = $('#input-max-horizon');
+  const horValue = $('#horizon-value');
+  horSlider.addEventListener('input', () => {
+    const v = parseInt(horSlider.value);
+    horValue.textContent = v === 0 ? 'off' : `${v}°`;
   });
 
   // Re-pick scan + recompute moon when user edits location text
@@ -461,8 +472,10 @@ async function startSearch() {
   const dataSource = useLive ? 'live' : 'precomputed';
   const gridStepKm = parseInt($('input[name="grid-step"]:checked')?.value || '5');
   const minElevationM = parseInt($('#input-min-elev').value) || 0;
+  const maxHorizonDeg = parseInt($('#input-max-horizon').value) || 0;
   const enrichWeather = $('#opt-weather').checked;
   const enrichDriving = $('#opt-driving').checked;
+  const enrichHorizon = $('#opt-horizon').checked;
 
   updateMoonChip();
 
@@ -497,8 +510,10 @@ async function startSearch() {
       scanData: selectedScanData,
       gridStepKm,
       minElevationM,
+      maxHorizonDeg,
       enrichWeather,
       enrichDriving,
+      enrichHorizon,
       signal: currentAbortController.signal,
       onProgress: (done, total, text) => {
         const pct = total > 0 ? Math.round((done / total) * 100) : 0;
@@ -562,9 +577,47 @@ function renderResults({ sites, stats }) {
     $('#btn-retry-overpass')?.addEventListener('click', retryOverpassOnly);
   }
 
-  // Results list
-  const listHtml = sites.map((site, index) => renderSiteCard(site, index)).join('');
-  $('#results-list').innerHTML = listHtml || '<div class="empty-state"><p>No dark sites found matching your criteria.</p></div>';
+  // View toggle (only meaningful when at least one site has a forecast)
+  const anyForecast = sites.some(s => s.forecast?.length);
+  const toggleHtml = anyForecast ? `
+    <div class="view-toggle" role="tablist">
+      <button class="view-toggle-btn ${resultsView === 'sites' ? 'active' : ''}" data-view="sites">By Site</button>
+      <button class="view-toggle-btn ${resultsView === 'nights' ? 'active' : ''}" data-view="nights">Best Nights</button>
+    </div>
+  ` : '';
+
+  let bodyHtml;
+  if (resultsView === 'nights' && anyForecast) {
+    const ranked = rankSiteNights(sites).slice(0, 25);
+    bodyHtml = ranked.length
+      ? ranked.map((row, i) => renderNightRow(row, i, sites)).join('')
+      : '<div class="empty-state"><p>No scored nights yet — enable "Cloud forecast" on next search.</p></div>';
+  } else {
+    bodyHtml = sites.length
+      ? sites.map((site, index) => renderSiteCard(site, index)).join('')
+      : '<div class="empty-state"><p>No dark sites found matching your criteria.</p></div>';
+  }
+
+  $('#results-list').innerHTML = toggleHtml + bodyHtml;
+
+  // Wire toggle
+  document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      resultsView = btn.dataset.view;
+      renderResults(currentResults);
+    });
+  });
+
+  // In Nights view we need handlers for the per-row "Jump to site" action
+  document.querySelectorAll('.night-row[data-site-index]').forEach(row => {
+    row.addEventListener('click', () => {
+      const idx = parseInt(row.dataset.siteIndex);
+      resultsView = 'sites';
+      renderResults(currentResults);
+      // Defer highlight to next tick so the cards are in the DOM
+      requestAnimationFrame(() => highlightSite(idx));
+    });
+  });
 
   // Attach event listeners
   document.querySelectorAll('.result-card').forEach(card => {
@@ -660,7 +713,7 @@ function renderSiteCard(site, index) {
     ? '<div class="amenity-tag" style="color:var(--accent-warning)">⚠️ No nearby facilities — may be hard to reach</div>'
     : '';
 
-  // Meta row: elevation + drive time
+  // Meta row: elevation + drive time + horizon summary
   const metaParts = [];
   if (site.elevationM != null) {
     metaParts.push(`<span class="card-meta-item">⛰️ <strong>${Math.round(site.elevationM)} m</strong></span>`);
@@ -668,12 +721,21 @@ function renderSiteCard(site, index) {
   if (site.driving) {
     metaParts.push(`<span class="card-meta-item">🚗 <strong>${formatDriveTime(site.driving.durationSec)}</strong> drive · ${Math.round(site.driving.distanceKm)} km</span>`);
   }
+  if (site.horizon) {
+    const tone = site.horizon.maxAngle < 5 ? 'good' : site.horizon.maxAngle < 15 ? 'ok' : 'bad';
+    metaParts.push(`<span class="card-meta-item horizon-${tone}">🏔️ horizon <strong>${site.horizon.maxAngle.toFixed(1)}°</strong> ${escapeHtml(site.horizon.worstAzimuth || '')}</span>`);
+  }
   const metaHtml = metaParts.length
     ? `<div class="card-meta">${metaParts.join('')}</div>`
     : '';
 
+  // Polar horizon plot
+  const horizonHtml = site.horizon
+    ? `<div class="card-horizon" title="Horizon profile — worst obstruction ${site.horizon.maxAngle.toFixed(1)}° ${site.horizon.worstAzimuth || ''}">${renderHorizonSvg(site.horizon)}</div>`
+    : '';
+
   // Weather forecast strip
-  const forecastHtml = renderForecast(site.forecast);
+  const forecastHtml = renderForecast(site);
 
   return `
     <div class="result-card" data-index="${index}" data-lat="${site.lat}" data-lng="${site.lng}">
@@ -685,8 +747,13 @@ function renderSiteCard(site, index) {
         <span class="card-distance">${formatDistance(site.distance)} ${site.direction}</span>
       </div>
       <div class="card-coords">${site.lat.toFixed(4)}°, ${site.lng.toFixed(4)}°</div>
-      ${metaHtml}
-      ${forecastHtml}
+      <div class="card-row-flex">
+        <div class="card-row-flex-main">
+          ${metaHtml}
+          ${forecastHtml}
+        </div>
+        ${horizonHtml}
+      </div>
       <div class="card-amenities">
         ${amenitiesHtml}
         ${noFacilitiesWarning}
@@ -710,23 +777,53 @@ function renderSiteCard(site, index) {
   `;
 }
 
-function renderForecast(nights) {
+function renderForecast(site) {
+  const nights = site.forecast;
   if (!nights || nights.length === 0) return '';
-  const best = bestNight(nights);
+  // Best = highest blended score (cloud + moon + precip), not just lowest cloud.
+  let best = null;
+  let bestScore = -Infinity;
+  for (const n of nights) {
+    const s = nightScore(site, n).score;
+    if (s > bestScore) { bestScore = s; best = n; }
+  }
   const cells = nights.map(n => {
     const cc = n.cloudCover;
     const tone = cc == null ? '' : cc < 30 ? 'fc-good' : cc < 70 ? 'fc-ok' : 'fc-bad';
     const dayLabel = new Date(n.date + 'T12:00:00').toLocaleDateString([], { weekday: 'short' });
     const isBest = best && n.date === best.date && nights.length > 1;
+    const score = nightScore(site, n).score;
     return `
-      <div class="forecast-night ${isBest ? 'fn-best' : ''}" title="${escapeHtml(n.date)} · ${cc ?? '—'}% cloud · ${n.precipProb ?? 0}% precip">
+      <div class="forecast-night ${isBest ? 'fn-best' : ''}" title="${escapeHtml(n.date)} · ${cc ?? '—'}% cloud · ${n.precipProb ?? 0}% precip · score ${score}">
         <div class="fn-day">${escapeHtml(dayLabel)}</div>
         <div class="fn-cloud ${tone}">${cc == null ? '—' : cc + '%'}</div>
         <div>${n.precipProb != null && n.precipProb > 20 ? '💧' + n.precipProb + '%' : '☁️'}</div>
       </div>
     `;
   }).join('');
-  return `<div class="card-forecast" title="7-night cloud-cover forecast — best night highlighted">${cells}</div>`;
+  return `<div class="card-forecast" title="7-night forecast — best night highlighted (blended cloud + moon + drive + sky score)">${cells}</div>`;
+}
+
+function renderNightRow(row, index, sites) {
+  const { site, night, score, reasons, weakest } = row;
+  const siteIdx = sites.indexOf(site);
+  const dayLabel = new Date(night.date + 'T12:00:00').toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+  const tone = score >= 75 ? 'score-good' : score >= 55 ? 'score-ok' : 'score-bad';
+  const reasonsHtml = reasons.slice(0, 4).map(r => `<span class="night-reason">${escapeHtml(r)}</span>`).join('');
+  return `
+    <div class="night-row" data-site-index="${siteIdx}" title="Tap to view this site">
+      <div class="night-rank">${index + 1}</div>
+      <div class="night-score ${tone}">${score}</div>
+      <div class="night-body">
+        <div class="night-line-1">
+          <strong>${escapeHtml(dayLabel)}</strong>
+          <span class="night-site">SQM ${site.sqm.toFixed(1)} · Bortle ${site.bortle} · ${formatDistance(site.distance)} ${site.direction}</span>
+        </div>
+        <div class="night-line-2">${reasonsHtml}</div>
+        <div class="night-line-3 night-weakest">held back by: <strong>${escapeHtml(weakest)}</strong></div>
+      </div>
+    </div>
+  `;
 }
 
 // ─── Map Markers ─────────────────────────────────────────────────────────
@@ -1054,11 +1151,39 @@ function handleSharedSiteHash() {
   updateMoonChip();
 }
 
+// ─── PWA: install prompt + offline indicator ─────────────────────────────
+let deferredInstallPrompt = null;
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredInstallPrompt = e;
+  $('#btn-install')?.classList.remove('hidden');
+});
+$('#btn-install')?.addEventListener('click', async () => {
+  if (!deferredInstallPrompt) return;
+  deferredInstallPrompt.prompt();
+  const { outcome } = await deferredInstallPrompt.userChoice;
+  deferredInstallPrompt = null;
+  $('#btn-install')?.classList.add('hidden');
+  if (outcome === 'accepted') showToast('Installed! Launch from your home screen.');
+});
+window.addEventListener('appinstalled', () => {
+  $('#btn-install')?.classList.add('hidden');
+});
+
+function syncOfflineIndicator() {
+  const chip = $('#offline-chip');
+  if (!chip) return;
+  chip.classList.toggle('hidden', navigator.onLine);
+}
+window.addEventListener('online', syncOfflineIndicator);
+window.addEventListener('offline', syncOfflineIndicator);
+
 // ─── Initialize ──────────────────────────────────────────────────────────
 initMap();
 initUI();
 updateMoonChip();
 updateSourceIndicator();
+syncOfflineIndicator();
 loadScanIndex().then(() => {
   // Both `handleSharedSiteHash` and `autoSelectScan` may depend on the scan list
   handleSharedSiteHash();
