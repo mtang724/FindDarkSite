@@ -16,6 +16,12 @@ export default defineConfig({
                 changeOrigin: true,
                 rewrite: (path) => path.replace(/^\/api\/lp/, '/geoserver/gwc/service/wms'),
             },
+            // Proxy 7Timer ASTRO endpoint (no CORS headers on the upstream)
+            '/api/7timer': {
+                target: 'https://www.7timer.info',
+                changeOrigin: true,
+                rewrite: (path) => path.replace(/^\/api\/7timer/, '/bin/astro.php'),
+            },
         },
     },
     plugins: [

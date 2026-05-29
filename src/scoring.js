@@ -13,13 +13,19 @@
  */
 
 import { moonSummary } from './astronomy.js';
+import { seeingScore01, transparencyScore01 } from './astroWeather.js';
 
 const WEIGHTS = {
-    cloud: 35,     // single biggest factor
-    sky: 25,       // Bortle quality
-    moon: 20,      // dark hours / moon illumination
-    drive: 12,     // closer wins
-    precip: 8,     // wet-out guard
+    cloud: 24,     // generic cloud cover
+    sky: 18,       // Bortle quality
+    seeing: 10,    // 7Timer seeing (atmospheric stability)
+    transp: 8,     // 7Timer transparency
+    moon: 14,      // dark hours / moon illumination
+    drive: 8,      // closer wins
+    remote: 8,     // distance to towns + residential — fights what VIIRS doesn't see
+    dew: 5,        // dew margin — gear staying dry
+    wind: 3,       // tracking shake guard
+    precip: 2,     // wet-out guard
 };
 
 /**
@@ -51,14 +57,47 @@ export function nightScore(site, night) {
         ? 0.7  // unknown: don't reward, don't crush
         : Math.max(0, Math.min(1, 1 - (driveSec - 900) / (4 * 3600 - 900)));
 
+    // Remoteness — 25 km from any town = 1.0, 0 km = 0.0. Residential landuse
+    // counted at 1/2 weight (cul-de-sacs aren't as bright as town centres).
+    const settK = site.nearestSettlementKm;
+    const resK  = site.nearestResidentialKm;
+    let remoteN = 0.7; // unknown context: neutral-ish
+    if (settK != null || resK != null) {
+        const settScore = settK != null ? Math.max(0, Math.min(1, settK / 25)) : 1;
+        const resScore  = resK  != null ? Math.max(0, Math.min(1, resK  / 15)) : 1;
+        remoteN = settScore * 0.7 + resScore * 0.3;
+    }
+    // Unreachable sites are a hard cap — even a perfect sky doesn't help if
+    // you can't drive there. Floor remoteness contribution at 0 in that case.
+    if (site.reachable === false) remoteN = 0;
+    // Land-status nudges: public land = small bump, military = treat as 0.
+    if (site.inMilitary) remoteN = 0;
+    else if (site.protectedArea) remoteN = Math.min(1, remoteN + 0.1);
+
+    // Astro-specific signals — present only when 7Timer data merged into night.
+    const seeingN = seeingScore01(night?.seeing);
+    const transpN = transparencyScore01(night?.transparency);
+
+    // Dew margin — < 2°C = lots of condensation likely; ≥ 5°C dry-ish.
+    const dewM = night?.dewMarginC;
+    const dewN = dewM == null ? 0.6 : Math.max(0, Math.min(1, (dewM - 0) / 8));
+    // Wind — gusts < 8 kph perfect, > 30 kph forget it (tracking shake).
+    const wind = night?.windKph;
+    const windN = wind == null ? 0.6 : Math.max(0, Math.min(1, 1 - (wind - 8) / (30 - 8)));
+
     const parts = {
-        cloud: cloudN * WEIGHTS.cloud,
-        sky:   skyN   * WEIGHTS.sky,
-        moon:  moonN  * WEIGHTS.moon,
-        drive: driveN * WEIGHTS.drive,
+        cloud:  cloudN  * WEIGHTS.cloud,
+        sky:    skyN    * WEIGHTS.sky,
+        seeing: (seeingN ?? 0.6) * WEIGHTS.seeing,
+        transp: (transpN ?? 0.6) * WEIGHTS.transp,
+        moon:   moonN   * WEIGHTS.moon,
+        drive:  driveN  * WEIGHTS.drive,
+        remote: remoteN * WEIGHTS.remote,
+        dew:    dewN    * WEIGHTS.dew,
+        wind:   windN   * WEIGHTS.wind,
         precip: precipN * WEIGHTS.precip,
     };
-    const score = Math.round(parts.cloud + parts.sky + parts.moon + parts.drive + parts.precip);
+    const score = Math.round(Object.values(parts).reduce((a, b) => a + b, 0));
 
     const reasons = [];
     if (cloudN >= 0.85) reasons.push(`☁️ ${cc}% cloud — clear`);
@@ -69,12 +108,29 @@ export function nightScore(site, night) {
     else if (moon && moon.fractionInterference > 0.6) reasons.push(`${moon.icon} bright moon up most of the night`);
     if (driveSec != null && driveSec < 60*60) reasons.push(`🚗 ${Math.round(driveSec/60)} min drive`);
     else if (driveSec != null && driveSec > 3*3600) reasons.push(`🚗 ${(driveSec/3600).toFixed(1)} h drive — far`);
+    if (site.reachable === false) reasons.push(`🚫 no drivable road within 800m`);
+    else if (settK != null && settK < 6) reasons.push(`🏘️ ${site.nearestSettlementName || 'town'} only ${settK} km away`);
+    else if (settK != null && settK >= 20) reasons.push(`🏞️ ${settK} km from nearest town — quiet`);
+    if (seeingN != null && seeingN >= 0.85) reasons.push(`👁️ seeing ${night.seeing.toFixed(1)}/8 — sharp`);
+    else if (seeingN != null && seeingN <= 0.4) reasons.push(`👁️ seeing ${night.seeing.toFixed(1)}/8 — turbulent`);
+    if (transpN != null && transpN >= 0.85) reasons.push(`🔭 transparency — pristine`);
+    else if (transpN != null && transpN <= 0.4) reasons.push(`🔭 hazy transparency`);
+    if (dewM != null && dewM < 2) reasons.push(`💧 dew margin ${dewM}°C — gear will wet`);
+    if (wind != null && wind > 25) reasons.push(`💨 wind ${wind} kph — tracking shake`);
     if (pp >= 50) reasons.push(`💧 ${pp}% precip — likely wet`);
 
     // Find the lowest-scoring component, naming it so the UI can render
-    // "Held back by: cloud" rather than mystery numbers.
-    const weakest = Object.entries(parts)
-        .map(([k, v]) => [k, v / WEIGHTS[k]])           // normalize to 0..1 per axis
+    // "Held back by: cloud" rather than mystery numbers. Skip axes that are
+    // pure "unknown defaults" — they shouldn't be the dominant headline.
+    const realParts = Object.entries(parts).filter(([k]) => {
+        if (k === 'seeing' && seeingN == null) return false;
+        if (k === 'transp' && transpN == null) return false;
+        if (k === 'dew'    && dewM == null) return false;
+        if (k === 'wind'   && wind == null) return false;
+        return true;
+    });
+    const weakest = realParts
+        .map(([k, v]) => [k, v / WEIGHTS[k]])
         .sort((a, b) => a[1] - b[1])[0][0];
 
     return { score, reasons, weakest, components: parts };
@@ -119,9 +175,10 @@ function moonForNight(lat, lng, dateStr) {
  * score descending. Caller decides how many to display.
  */
 export function rankSiteNights(sites) {
+    const today = new Date().toISOString().slice(0, 10);
     const rows = [];
     for (const site of sites) {
-        const nights = site.forecast || [];
+        const nights = (site.forecast || []).filter(n => n.date >= today);
         for (const night of nights) {
             const s = nightScore(site, night);
             rows.push({ site, night, ...s });

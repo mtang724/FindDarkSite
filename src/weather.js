@@ -21,7 +21,7 @@ async function fetchOne(lat, lng, signal) {
     if (cached && Date.now() - cached.ts < TTL_MS) return cached.data;
 
     const url = `${ENDPOINT}?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
-        + `&hourly=cloudcover,precipitation_probability,visibility`
+        + `&hourly=cloudcover,precipitation_probability,visibility,temperature_2m,dewpoint_2m,windspeed_10m,relativehumidity_2m`
         + `&timezone=auto&forecast_days=7`;
     const resp = await fetch(url, { signal });
     if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
@@ -38,9 +38,13 @@ async function fetchOne(lat, lng, signal) {
 function summarizeNights(json) {
     const hourly = json.hourly || {};
     const times = hourly.time || [];
-    const cc = hourly.cloudcover || [];
-    const pp = hourly.precipitation_probability || [];
-    const vis = hourly.visibility || [];
+    const cc    = hourly.cloudcover || [];
+    const pp    = hourly.precipitation_probability || [];
+    const vis   = hourly.visibility || [];
+    const temp  = hourly.temperature_2m || [];
+    const dew   = hourly.dewpoint_2m || [];
+    const wind  = hourly.windspeed_10m || [];
+    const rh    = hourly.relativehumidity_2m || [];
 
     // Group hour indices by night-of (the date the night starts on, local TZ).
     // Open-Meteo `time` strings are ISO-like in the requested timezone, with no offset.
@@ -58,19 +62,35 @@ function summarizeNights(json) {
         }
     }
 
+    const mean = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+    const max  = (arr) => arr.length ? Math.max(...arr) : null;
+
     const nights = [];
     for (const [date, idxs] of nightBuckets) {
         if (idxs.length === 0) continue;
-        const mean = (arr) => arr.reduce((a, b) => a + b, 0) / arr.length;
         const sample = (arr) => idxs.map(i => arr[i]).filter(v => v != null);
-        const ccVals = sample(cc);
-        const ppVals = sample(pp);
+        const ccVals  = sample(cc);
+        const ppVals  = sample(pp);
         const visVals = sample(vis);
+        const tempVals = sample(temp);
+        const dewVals  = sample(dew);
+        const windVals = sample(wind);
+        const rhVals   = sample(rh);
+
+        const tMean  = mean(tempVals);
+        const dewMean = mean(dewVals);
+
         nights.push({
             date,
-            cloudCover: ccVals.length ? Math.round(mean(ccVals)) : null,
-            precipProb: ppVals.length ? Math.round(mean(ppVals)) : null,
+            cloudCover: ccVals.length  ? Math.round(mean(ccVals))  : null,
+            precipProb: ppVals.length  ? Math.round(mean(ppVals))  : null,
             visibilityM: visVals.length ? Math.round(mean(visVals)) : null,
+            tempC:       tMean  != null ? +tMean.toFixed(1)  : null,
+            dewpointC:   dewMean != null ? +dewMean.toFixed(1) : null,
+            // Margin matters more than absolute dewpoint — < 2°C ≈ dew risk all night.
+            dewMarginC:  (tMean != null && dewMean != null) ? +(tMean - dewMean).toFixed(1) : null,
+            windKph:     windVals.length ? Math.round(max(windVals)) : null,
+            humidityPct: rhVals.length   ? Math.round(mean(rhVals))  : null,
         });
     }
     // Sort by date and only keep first 7

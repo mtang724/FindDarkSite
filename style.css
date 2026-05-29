@@ -448,6 +448,17 @@ select {
   margin-top: 4px;
 }
 
+.location-hint {
+  font-size: 11px;
+  color: var(--accent-primary);
+  margin-top: 4px;
+  min-height: 14px;
+  font-family: 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+}
+
+.location-hint.error { color: var(--accent-danger); }
+.location-hint.loading { color: var(--text-muted); }
+
 /* ─── Buttons ───────────────────────────────────────────────────────────── */
 
 .btn-primary {
@@ -928,12 +939,18 @@ select {
   fill: var(--text-muted);
 }
 
-.card-meta-item.horizon-good { color: var(--accent-success); }
-.card-meta-item.horizon-good strong { color: var(--accent-success); }
-.card-meta-item.horizon-ok   { color: var(--accent-warning); }
-.card-meta-item.horizon-ok   strong { color: var(--accent-warning); }
-.card-meta-item.horizon-bad  { color: var(--accent-danger); }
-.card-meta-item.horizon-bad  strong { color: var(--accent-danger); }
+.card-meta-item.horizon-good,
+.card-meta-item.reach-good { color: var(--accent-success); }
+.card-meta-item.horizon-good strong,
+.card-meta-item.reach-good strong { color: var(--accent-success); }
+.card-meta-item.horizon-ok,
+.card-meta-item.reach-ok { color: var(--accent-warning); }
+.card-meta-item.horizon-ok strong,
+.card-meta-item.reach-ok strong { color: var(--accent-warning); }
+.card-meta-item.horizon-bad,
+.card-meta-item.reach-bad { color: var(--accent-danger); }
+.card-meta-item.horizon-bad strong,
+.card-meta-item.reach-bad strong { color: var(--accent-danger); }
 
 @media (max-width: 480px) {
   .card-row-flex { flex-direction: column; }
@@ -960,6 +977,31 @@ select {
   color: var(--text-primary);
   font-weight: 600;
 }
+
+/* Tonight's astro chips (seeing/transparency/dew/wind) */
+.astro-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin: 6px 0 4px;
+}
+
+.astro-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  font-size: 11px;
+  background: var(--bg-input);
+  color: var(--text-secondary);
+}
+
+.astro-chip.good { background: rgba(52, 211, 153, 0.12); color: var(--accent-success); }
+.astro-chip.ok   { background: rgba(251, 191, 36, 0.12); color: var(--accent-warning); }
+.astro-chip.bad  { background: rgba(248, 113, 113, 0.12); color: var(--accent-danger); }
+
+.astro-chip strong { color: inherit; font-weight: 700; }
 
 /* Weather forecast strip — one cell per night */
 .card-forecast {

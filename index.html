@@ -46,9 +46,10 @@
         <div class="form-group">
           <label for="input-location">Location</label>
           <div class="input-row">
-            <input type="text" id="input-location" placeholder="e.g. 34.05, -118.24" />
+            <input type="text" id="input-location" placeholder="ZIP, city, address, or 34.05, -118.24" />
             <button id="btn-geolocate" class="icon-btn" title="Use my location">📍</button>
           </div>
+          <p id="location-hint" class="location-hint" aria-live="polite"></p>
         </div>
 
         <div class="form-group">
@@ -71,6 +72,19 @@
           <label for="input-max-horizon">Max Horizon Blockage: <span id="horizon-value">off</span></label>
           <input type="range" id="input-max-horizon" min="0" max="25" value="0" step="1" />
           <p class="form-hint">Drop sites with a ridge above this angle. 0 = no filter.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="input-min-settlement">Min Distance from Towns: <span id="settlement-value">off</span></label>
+          <input type="range" id="input-min-settlement" min="0" max="25" value="0" step="1" />
+          <p class="form-hint">Drop sites near cities/towns/villages. Light glow reaches further than VIIRS sees.</p>
+        </div>
+
+        <div class="form-group">
+          <label class="checkbox-option">
+            <input type="checkbox" id="opt-hide-unreachable" checked />
+            <span>🚫 Hide unreachable sites (no road within 800 m)</span>
+          </label>
         </div>
 
         <div class="form-group">

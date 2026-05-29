@@ -12,10 +12,13 @@ import { bestNight } from './weather.js';
 import { formatDriveTime } from './routing.js';
 import { nightScore, rankSiteNights } from './scoring.js';
 import { renderHorizonSvg } from './horizon.js';
+import { seeingLabel, transparencyLabel } from './astroWeather.js';
+import { resolveLocation, parseCoords } from './geocode.js';
 import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
 let map, searchCircle, markersGroup;
+let protectedLayer;          // L.layerGroup for protected-area polygons
 let siteMarkers = [];       // Leaflet markers indexed by site position in currentResults.sites
 let activeSiteIndex = null;
 let currentResults = null;
@@ -69,12 +72,19 @@ function initMap() {
   });
 
   // Layer control
+  // Protected-area overlay (filled later by renderMapMarkers)
+  protectedLayer = L.layerGroup();
+
   L.control.layers({
     'Dark': dark,
     'Satellite': satellite,
-  }, {}, { position: 'topright' }).addTo(map);
+  }, {
+    '🟢 Public lands': protectedLayer,
+  }, { position: 'topright' }).addTo(map);
 
   markersGroup = L.layerGroup().addTo(map);
+  // Show the overlay by default
+  protectedLayer.addTo(map);
 }
 
 // ─── UI Element References ───────────────────────────────────────────────
@@ -116,16 +126,17 @@ function initUI() {
     horValue.textContent = v === 0 ? 'off' : `${v}°`;
   });
 
-  // Re-pick scan + recompute moon when user edits location text
-  $('#input-location').addEventListener('change', () => {
-    const parsed = parseLocationInput();
-    if (parsed) {
-      userLat = parsed[0];
-      userLng = parsed[1];
-      updateMoonChip();
-      autoSelectScan({ force: true });
-    }
+  // Min-settlement-distance slider
+  const setSlider = $('#input-min-settlement');
+  const setValue = $('#settlement-value');
+  setSlider.addEventListener('input', () => {
+    const v = parseInt(setSlider.value);
+    setValue.textContent = v === 0 ? 'off' : `${v} km`;
   });
+
+  // Re-pick scan + recompute moon when user edits location text. Now async
+  // because non-coord input (ZIP / city / address) goes through Nominatim.
+  $('#input-location').addEventListener('change', () => { resolveAndUpdate(false); });
 
   // Live API toggle (Advanced) — only relevant for areas outside CONUS
   $('#opt-live-scan').addEventListener('change', (e) => {
@@ -219,12 +230,59 @@ function initUI() {
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
-function parseLocationInput() {
-  const loc = $('#input-location').value.trim();
-  if (!loc) return null;
-  const parts = loc.split(',').map(s => parseFloat(s.trim()));
-  if (parts.length !== 2 || !isFinite(parts[0]) || !isFinite(parts[1])) return null;
-  return parts;
+
+function setLocationHint(text, kind = '') {
+  const el = $('#location-hint');
+  if (!el) return;
+  el.textContent = text;
+  el.classList.remove('error', 'loading');
+  if (kind) el.classList.add(kind);
+}
+
+/**
+ * Resolve whatever's in #input-location to (lat, lng), update userLat/userLng,
+ * the moon chip, the source indicator, and trigger autoSelectScan.
+ *
+ * `force` = called from the Search button (we want to error out loudly if the
+ * geocode fails). When false (typing/blur) we silently no-op on errors so the
+ * user can keep typing.
+ */
+let currentGeocode = 0;
+async function resolveAndUpdate(force) {
+  const input = $('#input-location').value.trim();
+  if (!input) {
+    setLocationHint('');
+    return null;
+  }
+  // Fast path: coords. Don't show "looking up..." just to land at the same line.
+  const coords = parseCoords(input);
+  if (coords) {
+    userLat = coords.lat;
+    userLng = coords.lng;
+    setLocationHint(`→ ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
+    updateMoonChip();
+    await autoSelectScan({ force: true });
+    return coords;
+  }
+
+  setLocationHint(`Looking up "${input}"…`, 'loading');
+  const myToken = ++currentGeocode;
+  try {
+    const r = await resolveLocation(input);
+    if (myToken !== currentGeocode) return null; // a newer call superseded us
+    userLat = r.lat;
+    userLng = r.lng;
+    const label = r.displayName || `${r.lat.toFixed(4)}, ${r.lng.toFixed(4)}`;
+    setLocationHint(`→ ${label}  (${r.lat.toFixed(4)}, ${r.lng.toFixed(4)})`);
+    updateMoonChip();
+    await autoSelectScan({ force: true });
+    return { lat: r.lat, lng: r.lng };
+  } catch (err) {
+    if (myToken !== currentGeocode) return null;
+    setLocationHint(err.message || 'Could not resolve location.', 'error');
+    if (force) throw err; // bubble up to startSearch so it can show an alert
+    return null;
+  }
 }
 
 function updateSourceIndicator() {
@@ -449,21 +507,23 @@ async function startSearch() {
     return;
   }
 
-  // Parse location
+  // Resolve location (coords / ZIP / city / address)
   const locInput = $('#input-location').value.trim();
   if (!locInput) {
-    alert('Please enter a location or click 📍 to use your current location.');
+    alert('Please enter a location, ZIP code, or click 📍 to use your current location.');
     return;
   }
 
-  const coords = locInput.split(',').map(s => parseFloat(s.trim()));
-  if (coords.length !== 2 || isNaN(coords[0]) || isNaN(coords[1])) {
-    alert('Please enter coordinates as "latitude, longitude" (e.g. 34.05, -118.24)');
+  // resolveAndUpdate already sets userLat/userLng on success, or surfaces the
+  // error via #location-hint. We re-throw above so a stale value isn't reused.
+  let resolved;
+  try {
+    resolved = await resolveAndUpdate(true);
+  } catch (err) {
+    alert(`Could not resolve "${locInput}": ${err.message}`);
     return;
   }
-
-  userLat = coords[0];
-  userLng = coords[1];
+  if (!resolved) return; // hint already shows the error
 
   const radiusKm = parseInt($('#input-radius').value);
   const minSqm = parseFloat($('#input-sqm').value);
@@ -473,6 +533,8 @@ async function startSearch() {
   const gridStepKm = parseInt($('input[name="grid-step"]:checked')?.value || '5');
   const minElevationM = parseInt($('#input-min-elev').value) || 0;
   const maxHorizonDeg = parseInt($('#input-max-horizon').value) || 0;
+  const minSettlementKm = parseInt($('#input-min-settlement').value) || 0;
+  const hideUnreachable = $('#opt-hide-unreachable').checked;
   const enrichWeather = $('#opt-weather').checked;
   const enrichDriving = $('#opt-driving').checked;
   const enrichHorizon = $('#opt-horizon').checked;
@@ -511,6 +573,8 @@ async function startSearch() {
       gridStepKm,
       minElevationM,
       maxHorizonDeg,
+      minSettlementKm,
+      hideUnreachable,
       enrichWeather,
       enrichDriving,
       enrichHorizon,
@@ -556,8 +620,8 @@ function renderResults({ sites, stats }) {
       <div class="stat-label">Sites Found</div>
     </div>
     <div class="stat-card">
-      <div class="stat-value">${stats.sitesWithFacilities}</div>
-      <div class="stat-label">With Facilities</div>
+      <div class="stat-value">${stats.sitesReachable ?? '—'}</div>
+      <div class="stat-label">Reachable</div>
     </div>
     <div class="stat-card">
       <div class="stat-value">${stats.bestSqm?.toFixed(1) || '—'}</div>
@@ -725,6 +789,35 @@ function renderSiteCard(site, index) {
     const tone = site.horizon.maxAngle < 5 ? 'good' : site.horizon.maxAngle < 15 ? 'ok' : 'bad';
     metaParts.push(`<span class="card-meta-item horizon-${tone}">🏔️ horizon <strong>${site.horizon.maxAngle.toFixed(1)}°</strong> ${escapeHtml(site.horizon.worstAzimuth || '')}</span>`);
   }
+  // Reachability tags
+  if (site.nearestRoadM != null) {
+    const tone = site.reachable ? (site.nearestRoadM < 200 ? 'good' : 'ok') : 'bad';
+    const label = site.reachable
+      ? `🛣️ road <strong>${site.nearestRoadM} m</strong>`
+      : `🛣️ <strong>no drivable road</strong>`;
+    metaParts.push(`<span class="card-meta-item reach-${tone}">${label}</span>`);
+  } else if (site.reachable === false) {
+    metaParts.push(`<span class="card-meta-item reach-bad">🛣️ <strong>no drivable road</strong></span>`);
+  }
+  if (site.nearestSettlementName) {
+    const k = site.nearestSettlementKm;
+    const tone = k >= 15 ? 'good' : k >= 8 ? 'ok' : 'bad';
+    metaParts.push(`<span class="card-meta-item reach-${tone}">🏘️ ${escapeHtml(site.nearestSettlementName)} <strong>${k} km</strong></span>`);
+  }
+  // Public-land badge: green if inside a protected area, red if inside a military area.
+  if (site.inMilitary) {
+    metaParts.push(`<span class="card-meta-item reach-bad">⛔ <strong>Inside military area</strong></span>`);
+  } else if (site.protectedArea?.name || site.protectedArea?.boundary) {
+    const a = site.protectedArea;
+    const label = a.name || (a.boundary === 'national_park' ? 'National Park' : 'Protected area');
+    metaParts.push(`<span class="card-meta-item reach-good" title="${escapeHtml([a.cls, a.ownership].filter(Boolean).join(' · '))}">🌲 ${escapeHtml(label)}</span>`);
+  }
+  // Road surface
+  if (site.roadSurface) {
+    const paved = /^(asphalt|paved|concrete)$/.test(site.roadSurface);
+    const tone = paved ? 'good' : (site.roadSurface === 'unpaved' || site.roadSurface === 'gravel') ? 'ok' : 'bad';
+    metaParts.push(`<span class="card-meta-item reach-${tone}">🛤️ ${escapeHtml(site.roadSurface)}</span>`);
+  }
   const metaHtml = metaParts.length
     ? `<div class="card-meta">${metaParts.join('')}</div>`
     : '';
@@ -736,6 +829,12 @@ function renderSiteCard(site, index) {
 
   // Weather forecast strip
   const forecastHtml = renderForecast(site);
+
+  // Tonight-class astro chips — pick the first forecast night whose date
+  // is today-or-later (Open-Meteo sometimes back-fills the previous evening).
+  const today = new Date().toISOString().slice(0, 10);
+  const tonight = site.forecast?.find(n => n.date >= today) || site.forecast?.[0];
+  const astroChipsHtml = tonight ? renderAstroChips(tonight) : '';
 
   return `
     <div class="result-card" data-index="${index}" data-lat="${site.lat}" data-lng="${site.lng}">
@@ -750,6 +849,7 @@ function renderSiteCard(site, index) {
       <div class="card-row-flex">
         <div class="card-row-flex-main">
           ${metaHtml}
+          ${astroChipsHtml}
           ${forecastHtml}
         </div>
         ${horizonHtml}
@@ -777,9 +877,32 @@ function renderSiteCard(site, index) {
   `;
 }
 
+function renderAstroChips(n) {
+  const chips = [];
+  if (n.seeing != null) {
+    const tone = n.seeing <= 2.5 ? 'good' : n.seeing <= 4 ? 'ok' : 'bad';
+    chips.push(`<span class="astro-chip ${tone}" title="7Timer seeing scale 1=excellent .. 8=awful">👁️ seeing <strong>${seeingLabel(n.seeing)}</strong></span>`);
+  }
+  if (n.transparency != null) {
+    const tone = n.transparency <= 2.5 ? 'good' : n.transparency <= 4 ? 'ok' : 'bad';
+    chips.push(`<span class="astro-chip ${tone}" title="7Timer transparency 1=pristine .. 8=opaque">🔭 ${transparencyLabel(n.transparency)}</span>`);
+  }
+  if (n.dewMarginC != null) {
+    const tone = n.dewMarginC >= 5 ? 'good' : n.dewMarginC >= 2 ? 'ok' : 'bad';
+    chips.push(`<span class="astro-chip ${tone}" title="Temperature minus dewpoint. < 2°C = condensation likely.">💧 dew margin <strong>${n.dewMarginC}°</strong></span>`);
+  }
+  if (n.windKph != null) {
+    const tone = n.windKph < 10 ? 'good' : n.windKph < 25 ? 'ok' : 'bad';
+    chips.push(`<span class="astro-chip ${tone}" title="Open-Meteo wind 10m, max over the night window">💨 wind <strong>${n.windKph} kph</strong></span>`);
+  }
+  if (!chips.length) return '';
+  return `<div class="astro-chips" title="Tonight's astro conditions">${chips.join('')}</div>`;
+}
+
 function renderForecast(site) {
-  const nights = site.forecast;
-  if (!nights || nights.length === 0) return '';
+  const today = new Date().toISOString().slice(0, 10);
+  const nights = (site.forecast || []).filter(n => n.date >= today);
+  if (nights.length === 0) return '';
   // Best = highest blended score (cloud + moon + precip), not just lowest cloud.
   let best = null;
   let bestScore = -Infinity;
@@ -827,10 +950,29 @@ function renderNightRow(row, index, sites) {
 }
 
 // ─── Map Markers ─────────────────────────────────────────────────────────
-function renderMapMarkers({ sites }) {
+function renderMapMarkers({ sites, protectedAreas }) {
   markersGroup.clearLayers();
+  protectedLayer.clearLayers();
   siteMarkers = [];
   activeSiteIndex = null;
+
+  // Protected-area polygons — drawn under the site markers
+  if (Array.isArray(protectedAreas)) {
+    for (const area of protectedAreas) {
+      const color = area.boundary === 'national_park' ? '#34d399' : '#86efac';
+      for (const ring of area.rings) {
+        if (ring.length < 3) continue;
+        const latlngs = ring.map(p => [p.lat, p.lon]);
+        const poly = L.polygon(latlngs, {
+          color, weight: 1.2, fillColor: color, fillOpacity: 0.10, dashArray: '4 4', interactive: true,
+        });
+        const title = area.name || (area.boundary === 'national_park' ? 'National Park' : 'Protected Area');
+        const subtitle = [area.cls, area.ownership].filter(Boolean).join(' · ');
+        poly.bindTooltip(`<strong>${escapeHtml(title)}</strong>${subtitle ? `<br><span style="opacity:0.75">${escapeHtml(subtitle)}</span>` : ''}`, { sticky: true });
+        poly.addTo(protectedLayer);
+      }
+    }
+  }
 
   // Search radius circle
   if (searchCircle) map.removeLayer(searchCircle);

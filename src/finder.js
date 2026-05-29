@@ -10,8 +10,10 @@ import { liveGridScan, loadScanData } from './lightPollution.js';
 import { searchNearbyPOIsBatch, searchRIDBCampgrounds } from './poiSearch.js';
 import { fetchElevations } from './elevation.js';
 import { fetchForecastsBatch } from './weather.js';
+import { fetchAstroBatch } from './astroWeather.js';
 import { fetchDrivingTimes } from './routing.js';
 import { computeHorizonsBatch } from './horizon.js';
+import { fetchReachabilityContext, classifySite, extractProtectedAreas } from './reachability.js';
 
 /**
  * @typedef {Object} FinderOptions
@@ -31,6 +33,8 @@ import { computeHorizonsBatch } from './horizon.js';
  * @property {boolean} [enrichDriving] - fetch driving time for top N (default true)
  * @property {boolean} [enrichHorizon] - sample DEM horizon profile for top N (default true)
  * @property {number}  [maxHorizonDeg] - drop final sites whose worst horizon angle > this (0 = no filter)
+ * @property {boolean} [hideUnreachable] - drop sites with no drivable road within 800 m (default false)
+ * @property {number}  [minSettlementKm] - drop sites whose effective distance to a town < this (0 = no filter)
  * @property {Function} onProgress
  * @property {Function} onStageChange
  */
@@ -52,6 +56,8 @@ export async function findDarkSites(options) {
         enrichDriving = true,
         enrichHorizon = true,
         maxHorizonDeg = 0,
+        hideUnreachable = false,
+        minSettlementKm = 0,
         signal,
         onProgress, onStageChange
     } = options;
@@ -131,6 +137,20 @@ export async function findDarkSites(options) {
         : `Got ${overpassPOIs.length} OSM facilities`);
     throwIfAborted();
 
+    // ─── Stage 2b: Reachability + remoteness context ───────────────────────
+    onStageChange?.('reachability', `Checking road access + town proximity for ${candidateSeeds.length} sites...`);
+    let reachabilityElements = [];
+    let reachabilityError = null;
+    if (candidateSeeds.length > 0) {
+        const ctx = await fetchReachabilityContext(
+            candidateSeeds.map(s => ({ lat: s.lat, lng: s.lng })),
+            signal,
+        );
+        reachabilityElements = ctx.elements;
+        reachabilityError = ctx.error;
+    }
+    throwIfAborted();
+
     const poiRadiusKm = poiRadiusM / 1000;
     const useRidb = ridbApiKey && ridbApiKey !== 'YOUR_RIDB_API_KEY';
     const sites = [];
@@ -154,24 +174,42 @@ export async function findDarkSites(options) {
         }
 
         const allPois = mergePOIs([...localOsm, ...campgrounds], seed.lat, seed.lng);
+        const reachability = classifySite(seed, reachabilityElements);
         sites.push({
             ...seed,
+            ...reachability,
             pois: allPois,
             hasNearbyFacilities: allPois.length > 0,
             amenityCounts: countAmenities(allPois),
         });
     }
 
-    // Sort: prioritize sites with facilities, then by distance
-    sites.sort((a, b) => {
-        // Sites with facilities first
+    // Reachability + remoteness filters — apply BEFORE the maxResults slice so
+    // we don't waste the result budget on unusable sites.
+    let filteredSites = sites;
+    if (hideUnreachable) {
+        filteredSites = filteredSites.filter(s => s.reachable);
+    }
+    if (minSettlementKm > 0) {
+        // Unknown settlement distance passes through; only drop ones we know are too close.
+        filteredSites = filteredSites.filter(
+            s => s.nearestSettlementKm == null || s.nearestSettlementKm >= minSettlementKm
+        );
+    }
+
+    // Sort: prioritize reachable + with facilities, then by distance
+    filteredSites.sort((a, b) => {
+        // Reachable sites first
+        if (a.reachable && !b.reachable) return -1;
+        if (!a.reachable && b.reachable) return 1;
+        // Then sites with facilities
         if (a.hasNearbyFacilities && !b.hasNearbyFacilities) return -1;
         if (!a.hasNearbyFacilities && b.hasNearbyFacilities) return 1;
         // Then by distance
         return a.distance - b.distance;
     });
 
-    const finalSites = sites.slice(0, maxResults);
+    const finalSites = filteredSites.slice(0, maxResults);
 
     // ─── Stage 3: Enrich top sites with weather & driving time ─────────────
     // Cap network calls — these hit external APIs per-site.
@@ -190,6 +228,29 @@ export async function findDarkSites(options) {
         } catch (err) {
             if (err.name === 'AbortError') throw err;
             console.warn('Weather enrichment failed:', err.message);
+        }
+
+        // 7Timer ASTRO: seeing + transparency. Independent failure mode.
+        onStageChange?.('astro', `Fetching astronomy forecast (seeing + transparency)...`);
+        try {
+            const astro = await fetchAstroBatch(
+                topSites.map(s => ({ lat: s.lat, lng: s.lng })),
+                signal,
+                (done, total) => onProgress?.(done, total, `Astro: ${done}/${total}`)
+            );
+            // Merge per-night: lookup by date and stitch into the forecast row
+            topSites.forEach((s, i) => {
+                const nights = astro[i]?.nights || [];
+                if (!s.forecast?.length || !nights.length) return;
+                const byDate = new Map(nights.map(n => [n.date, n]));
+                s.forecast = s.forecast.map(n => {
+                    const a = byDate.get(n.date);
+                    return a ? { ...n, seeing: a.seeingMean, transparency: a.transparencyMean } : n;
+                });
+            });
+        } catch (err) {
+            if (err.name === 'AbortError') throw err;
+            console.warn('Astro enrichment failed:', err.message);
         }
     }
     throwIfAborted();
@@ -234,21 +295,26 @@ export async function findDarkSites(options) {
         displaySites = finalSites.filter(s => s.horizon == null || s.horizon.maxAngle <= maxHorizonDeg);
     }
 
+    // Map overlay: protected-area polygons from the reachability dataset
+    const protectedAreas = extractProtectedAreas(reachabilityElements);
+
     // Stats
     const stats = {
         totalScanned: allPoints.length,
         seedsFound: seeds.length,
         sitesWithFacilities: displaySites.filter(s => s.hasNearbyFacilities).length,
         sitesWithoutFacilities: displaySites.filter(s => !s.hasNearbyFacilities).length,
+        sitesReachable: displaySites.filter(s => s.reachable).length,
         totalPOIs: displaySites.reduce((sum, s) => sum + s.pois.length, 0),
         bestSqm: displaySites.length ? Math.max(...displaySites.map(s => s.sqm)) : null,
         bestBortle: displaySites.length ? Math.min(...displaySites.map(s => s.bortle)) : null,
-        overpassError, // null on success, error message string when every Overpass call failed
+        overpassError, // null on success, error message string when every POI Overpass call failed
+        reachabilityError, // null on success, error message string when reachability lookup failed
     };
 
     onStageChange?.('done', `Found ${finalSites.length} recommended sites!`);
 
-    return { sites: displaySites, stats };
+    return { sites: displaySites, stats, protectedAreas };
 }
 
 /**
