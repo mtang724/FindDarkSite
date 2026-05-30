@@ -123,6 +123,7 @@ function initUI() {
   const radiusValue = $('#radius-value');
   radiusSlider.addEventListener('input', () => {
     radiusValue.textContent = radiusSlider.value;
+    updateRadiusPreview(); // live map feedback as the radius changes
   });
 
   // SQM slider
@@ -288,6 +289,7 @@ async function resolveAndUpdate(force) {
     setLocationHint(`→ ${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)}`);
     updateMoonChip();
     await autoSelectScan({ force: true });
+    updateRadiusPreview({ fit: true });
     return coords;
   }
 
@@ -302,6 +304,7 @@ async function resolveAndUpdate(force) {
     setLocationHint(`→ ${label}  (${r.lat.toFixed(4)}, ${r.lng.toFixed(4)})`);
     updateMoonChip();
     await autoSelectScan({ force: true });
+    updateRadiusPreview({ fit: true });
     return { lat: r.lat, lng: r.lng };
   } catch (err) {
     if (myToken !== currentGeocode) return null;
@@ -514,6 +517,7 @@ function geolocate() {
 
       updateMoonChip();
       autoSelectScan({ force: true });
+      updateRadiusPreview();
     },
     (err) => {
       alert(`Geolocation error: ${err.message}`);
@@ -1234,6 +1238,25 @@ function renderNightRow(row, index, sites) {
 }
 
 // ─── Map Markers ─────────────────────────────────────────────────────────
+// Draw / update the search-radius circle so the radius slider has live visual
+// feedback on the map even before a search runs. `fit` frames the circle (used
+// when a location is first committed); slider drags update in place without
+// yanking the zoom around.
+function updateRadiusPreview({ fit = false } = {}) {
+  if (!map || userLat == null || userLng == null) return;
+  const radiusKm = parseInt($('#input-radius').value) || 0;
+  if (searchCircle) map.removeLayer(searchCircle);
+  searchCircle = L.circle([userLat, userLng], {
+    radius: radiusKm * 1000,
+    color: '#818cf8',
+    fillColor: '#818cf8',
+    fillOpacity: 0.03,
+    weight: 1,
+    dashArray: '8 4',
+  }).addTo(map);
+  if (fit) map.fitBounds(searchCircle.getBounds(), { padding: [40, 40] });
+}
+
 function renderMapMarkers({ sites, protectedAreas }) {
   markersGroup.clearLayers();
   protectedLayer.clearLayers();
@@ -1258,17 +1281,8 @@ function renderMapMarkers({ sites, protectedAreas }) {
     }
   }
 
-  // Search radius circle
-  if (searchCircle) map.removeLayer(searchCircle);
-  const radiusKm = parseInt($('#input-radius').value);
-  searchCircle = L.circle([userLat, userLng], {
-    radius: radiusKm * 1000,
-    color: '#818cf8',
-    fillColor: '#818cf8',
-    fillOpacity: 0.03,
-    weight: 1,
-    dashArray: '8 4',
-  }).addTo(map);
+  // Search radius circle (shared with the live slider preview)
+  updateRadiusPreview();
 
   // Site markers
   sites.forEach((site, index) => {
