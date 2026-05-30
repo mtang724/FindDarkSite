@@ -187,7 +187,12 @@ export async function findDarkSites(options) {
     // Reachability + remoteness filters — apply BEFORE the maxResults slice so
     // we don't waste the result budget on unusable sites.
     let filteredSites = sites;
-    if (hideUnreachable) {
+    if (hideUnreachable && !reachabilityError) {
+        // When the reachability lookup itself failed (e.g. Overpass 503/504),
+        // every site looks unreachable — don't silently drop the entire result
+        // set over missing data. The reachabilityError surfaces in the UI so the
+        // user knows access is unverified. (Same "unknown passes through"
+        // philosophy as the settlement filter below.)
         filteredSites = filteredSites.filter(s => s.reachable);
     }
     if (minSettlementKm > 0) {
