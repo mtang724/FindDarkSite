@@ -36,7 +36,7 @@ FindDarkSite tries to surface all of these at once.
 - **Driving time** via OSRM (vs. straight-line distance).
 
 ### Community data
-- **🗣️ Reddit "Locals say…"** — top stargazing threads from 50 US metro subreddits, LLM-extracted into specific spots, geocoded. Renders as a panel above results + orange pins on the map.
+- **🗣️ Reddit "Locals say…"** — top stargazing threads from ~80 US metro subreddits (authenticated deep scrape), LLM-extracted into 600+ specific spots, geocoded and de-duplicated. Spots recommended from several metros are flagged as cross-validated ("vetted across N threads"). Renders as a panel above results + orange pins on the map.
 - **📍 GLOBE at Night** — 10,900 US citizen-science SQM measurements from 2024–25 as a togglable map layer; per-site card badge for the best nearby reading. Independently validates the satellite model.
 - **🌌 IDA Dark Sky Places** — 135 certified parks/reserves/sanctuaries from Wikidata, colour-coded by designation.
 
@@ -121,7 +121,7 @@ All of these are baked into the bundle by scripts in [`scripts/`](scripts/) — 
 | **World Atlas 2015** (Falchi) | Bortle 1/2/3 modelled brightness | **No redistribution** | `node scanner/viirs/scan-raster.mjs --source worldatlas` — local-only; never commit |
 | **Wikidata** (`wdt:P1435`) | IDA-certified Dark Sky Places | CC0 | `node scripts/fetch-dark-sky-places.mjs` |
 | **GLOBE at Night** | Citizen-science SQM + naked-eye observations | CC BY 4.0 | `node scripts/fetch-globe-at-night.mjs` |
-| **Reddit** (50 metro subs) | Community-vetted spots | Posters' content; we link source | `node scripts/fetch-reddit-stargazing.mjs` (Playwright; needs a fresh LLM extraction pass after) |
+| **Reddit** (~80 metro subs) | Community-vetted spots | Posters' content; we link source | `node scripts/reddit-login-manual.mjs` then `node scripts/fetch-reddit-deep.mjs` (auth'd Playwright; LLM extraction + geocode after) |
 | **OpenStreetMap (Overpass)** | POIs, roads, towns, residential, protected areas | ODbL | live, per-search |
 | **Open-Meteo** | Cloud, temp, dewpoint, wind, elevation | CC BY 4.0, no key | live, per-search |
 | **7Timer** | Seeing + transparency | Public | live, via Vite `/api/7timer` proxy (no CORS upstream) |
@@ -202,8 +202,12 @@ FindDarkSite/
 │   ├── fetch-dark-sky-places.mjs
 │   ├── fetch-globe-at-night.mjs
 │   ├── us-metros.mjs
-│   ├── fetch-reddit-stargazing.mjs
-│   ├── geocode-extracted-places.mjs
+│   ├── reddit-login-manual.mjs       # real-Chrome manual login → persistent profile
+│   ├── fetch-reddit-deep.mjs         # authenticated deep scrape (~80 metros)
+│   ├── fetch-reddit-stargazing.mjs   # older anonymous wide pass
+│   ├── geocode-extracted-places.mjs  # rebuild reddit-locations.json from extracted cache
+│   ├── geocode-fill-missing.mjs      # non-destructive: fill only missing coords
+│   ├── dedup-reddit-locations.mjs    # merge dup pins + cross-metro trust signal
 │   └── build-icons.mjs
 └── tests/                      # Playwright end-to-end checks (one per feature)
     ├── smoke.mjs
@@ -230,10 +234,13 @@ node scripts/fetch-dark-sky-places.mjs
 # GLOBE at Night SQM measurements (~10k US records; CC BY)
 node scripts/fetch-globe-at-night.mjs
 
-# Reddit recommendations (two-step: scrape then LLM-extract then geocode)
-node scripts/fetch-reddit-stargazing.mjs            # raw → scripts/.cache/reddit-raw.json
+# Reddit recommendations (authenticated deep scrape → LLM-extract → geocode)
+node scripts/reddit-login-manual.mjs                # once: real Chrome, sign in by hand → persistent profile
+node scripts/fetch-reddit-deep.mjs                  # ~80 metros, runs overnight → scripts/.cache/reddit-raw-deep.json
 # Then use any Claude agent to extract specific places into scripts/.cache/reddit-extracted.json
-node scripts/geocode-extracted-places.mjs           # → public/data/reddit-locations.json
+node scripts/geocode-extracted-places.mjs           # rebuild → public/data/reddit-locations.json
+node scripts/geocode-fill-missing.mjs               # OR non-destructively backfill only missing coords
+node scripts/dedup-reddit-locations.mjs             # merge dup pins + add cross-metro trust signal
 ```
 
 Re-run cadence we use: monthly for Reddit, quarterly for everything else.
