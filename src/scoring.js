@@ -15,7 +15,7 @@
  * UI can sort, filter, and render reasons without re-deriving anything.
  */
 
-import { moonSummary } from './astronomy.js';
+import { moonInterferenceForNight, formatLocalTime } from './astronomy.js';
 import { seeingScore01, transparencyScore01 } from './astroWeather.js';
 
 const WEIGHTS = {
@@ -53,8 +53,9 @@ export function nightScore(site, night) {
     const pp = night?.precipProb ?? 0;
     const precipN = Math.max(0, Math.min(1, (100 - pp) / 100));
 
-    // Moon — illumination weighted by fraction-of-night above horizon.
-    const moon = moonForNight(site.lat, site.lng, night?.date);
+    // Moon — illumination weighted by fraction of the *real* astronomical-dark
+    // window the moon is actually above the horizon (not a fixed 21–05 block).
+    const moon = moonInterferenceForNight(site.lat, site.lng, night?.date);
     const moonN = moon ? 1 - moon.fractionInterference : 0.5;
 
     // 7Timer (1-8 scales, 1 = best).
@@ -165,6 +166,13 @@ export function nightScore(site, night) {
     else if (cloudN <= 0.4) reasons.push(`☁️ ${cc}% cloud — bad`);
     if (moon && moon.illumination < 0.15) reasons.push(`${moon.icon} ${Math.round(moon.illumination * 100)}% moon — dark`);
     else if (moon && moon.fractionInterference > 0.6) reasons.push(`${moon.icon} bright moon up most of the night`);
+    // A bright moon that *sets* mid-window leaves a usable dark stretch — surface it.
+    else if (moon && moon.illumination >= 0.3 && moon.moonsetDuringWindow) {
+        reasons.push(`${moon.icon} dark after moon sets ${formatLocalTime(moon.moonsetDuringWindow)}`);
+    }
+    if (moon && moon.hoursDark != null && moon.hoursDark < 4.5) {
+        reasons.push(`🌌 only ${moon.hoursDark.toFixed(1)} h of astro-dark`);
+    }
     if (seeingN != null && seeingN >= 0.85) reasons.push(`👁️ seeing ${night.seeing.toFixed(1)}/8 — sharp`);
     else if (seeingN != null && seeingN <= 0.4) reasons.push(`👁️ seeing ${night.seeing.toFixed(1)}/8 — turbulent`);
     if (transpN != null && transpN >= 0.85) reasons.push(`🔭 transparency — pristine`);
@@ -182,6 +190,12 @@ export function nightScore(site, night) {
     else if (settK != null && settK >= 20) reasons.push(`🏞️ ${settK} km from nearest town`);
     if (driveSec != null && driveSec < 60 * 60) reasons.push(`🚗 ${Math.round(driveSec / 60)} min drive`);
     else if (driveSec != null && driveSec > 3 * 3600) reasons.push(`🚗 ${(driveSec / 3600).toFixed(1)} h drive — far`);
+    // Light-dome direction: where the nearby city glow piles up. The actionable
+    // bit is which way to face away from it. Only surfaced when the glow is
+    // clearly directional (a faint, evenly-spread glow isn't worth a pill).
+    if (site.lightDome && site.lightDome.concentration > 0.45) {
+        reasons.push(`🏙️ light dome ${site.lightDome.direction} — face away`);
+    }
     // community
     if (ida) {
         const d = ida.distanceKm ?? 0;
@@ -190,7 +204,11 @@ export function nightScore(site, night) {
     }
     if (r && r.distanceKm != null && r.distanceKm < 12) {
         const verb = r.distanceKm < 2 ? 'at' : `${r.distanceKm.toFixed(0)} km from`;
-        if (r.sentiment === 'positive') reasons.push(`🗣️ ${verb} r/${r.subreddit}'s ${r.name}`);
+        // A spot recommended from several metros is a stronger endorsement than
+        // a one-off mention — surface that cross-validation.
+        const vetted = r.mentions >= 2 ? ` — vetted across ${r.mentions} threads` : '';
+        if (r.sentiment === 'positive') reasons.push(`🗣️ ${verb} r/${r.subreddit}'s ${r.name}${vetted}`);
+        else if (r.sentiment === 'mixed' && vetted) reasons.push(`🗣️ ${verb} ${r.name}${vetted}`);
         else if (r.sentiment === 'negative') reasons.push(`🗣️ locals: skip ${r.name}`);
     }
     if (site.sqmReport?.sqm != null) {
@@ -216,30 +234,6 @@ export function nightScore(site, night) {
         : 'unknown';
 
     return { score, reasons, weakest, components: parts };
-}
-
-/**
- * Compute moon interference for a given calendar night.
- */
-function moonForNight(lat, lng, dateStr) {
-    if (!dateStr) return null;
-    const start = new Date(dateStr + 'T21:00:00');
-    const end = new Date(start.getTime() + 8 * 3600 * 1000);
-    const m = moonSummary(lat, lng, start);
-    let upMinutes = 0;
-    const total = 8 * 60;
-    if (m.alwaysUp) {
-        upMinutes = total;
-    } else if (m.moonrise && m.moonset) {
-        const rise = m.moonrise.getTime();
-        const set = m.moonset.getTime();
-        for (let t = start.getTime(); t < end.getTime(); t += 30 * 60 * 1000) {
-            const inWindow = set > rise ? (t >= rise && t < set) : (t >= rise || t < set);
-            if (inWindow) upMinutes += 30;
-        }
-    }
-    const fractionInterference = (upMinutes / total) * m.illumination;
-    return { illumination: m.illumination, icon: m.phaseIcon, fractionInterference };
 }
 
 /**

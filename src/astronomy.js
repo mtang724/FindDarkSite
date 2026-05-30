@@ -83,3 +83,63 @@ export function formatLocalTime(d) {
     if (!d) return '—';
     return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
+
+/**
+ * Moon interference over the *real* astronomical-dark window for a given
+ * calendar night, rather than a fixed 21:00–05:00 block. Samples actual moon
+ * altitude across [astro dusk → astro dawn] so summer short-nights, high
+ * latitudes, and mid-window moonsets are all handled correctly.
+ *
+ * @param {number} lat
+ * @param {number} lng
+ * @param {string} dateStr - 'YYYY-MM-DD' (the evening this night begins)
+ * @returns {null | {
+ *   illumination:number, icon:string, fractionInterference:number,
+ *   darkStart:Date, darkEnd:Date, hoursDark:number,
+ *   moonUpFraction:number, moonsetDuringWindow:Date|null
+ * }}  fractionInterference is moon-up-fraction × illumination, in 0..1.
+ */
+export function moonInterferenceForNight(lat, lng, dateStr) {
+    if (!dateStr) return null;
+    // Anchor at noon of that date so getTimes() returns this evening's dusk.
+    const anchor = new Date(dateStr + 'T12:00:00');
+    if (isNaN(anchor)) return null;
+
+    const sun = SunCalc.getTimes(anchor, lat, lng);
+    // Prefer astronomical night; degrade to nautical / civil / sunset if the
+    // sun never dips far enough (high-latitude summer).
+    let darkStart = sun.night || sun.nauticalDusk || sun.dusk || sun.sunset;
+    let darkEnd = sun.nightEnd || sun.nauticalDawn || sun.dawn || sun.sunrise;
+    if (!darkStart || !darkEnd || isNaN(darkStart) || isNaN(darkEnd)) {
+        // Polar / undefined twilight: approximate a fixed 21:00→05:00 block.
+        darkStart = new Date(anchor.getTime() + 9 * 3600e3);
+        darkEnd = new Date(anchor.getTime() + 17 * 3600e3);
+    }
+    if (darkEnd <= darkStart) darkEnd = new Date(darkEnd.getTime() + 24 * 3600e3);
+
+    const illum = SunCalc.getMoonIllumination(darkStart);
+    const stepMs = 20 * 60 * 1000;
+    let up = 0, total = 0, prevUp = null, moonsetDuringWindow = null;
+    for (let t = darkStart.getTime(); t <= darkEnd.getTime(); t += stepMs) {
+        const alt = SunCalc.getMoonPosition(new Date(t), lat, lng).altitude;
+        const isUp = alt > 0;
+        if (isUp) up++;
+        total++;
+        if (prevUp === true && !isUp && moonsetDuringWindow == null) {
+            moonsetDuringWindow = new Date(t);
+        }
+        prevUp = isUp;
+    }
+    const moonUpFraction = total ? up / total : 0;
+    const cls = classifyPhase(illum.phase);
+    return {
+        illumination: illum.fraction,
+        icon: cls.icon,
+        fractionInterference: moonUpFraction * illum.fraction,
+        darkStart,
+        darkEnd,
+        hoursDark: (darkEnd - darkStart) / 3600000,
+        moonUpFraction,
+        moonsetDuringWindow,
+    };
+}

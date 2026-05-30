@@ -288,6 +288,13 @@ export async function findDarkSites(options) {
     }
     throwIfAborted();
 
+    // ─── Light-dome direction (free — computed from the in-memory scan grid) ──
+    // Which way does the surrounding city glow pile up? Tells the observer which
+    // direction to face away from. No network calls.
+    for (const s of topSites) {
+        s.lightDome = computeLightDome(s, allPoints);
+    }
+
     // Optional horizon filter — apply only to the enriched (top) sites that
     // have a horizon profile; unprofiled sites pass through.
     let displaySites = finalSites;
@@ -315,6 +322,47 @@ export async function findDarkSites(options) {
     onStageChange?.('done', `Found ${finalSites.length} recommended sites!`);
 
     return { sites: displaySites, stats, protectedAreas };
+}
+
+/**
+ * Estimate the direction of the dominant light dome around a site by
+ * vector-summing the brightness of surrounding scan points, weighted by
+ * inverse-square distance (sky glow falls off with distance). Only points
+ * *brighter than the site itself* contribute — those are the glow sources.
+ *
+ * Brightness is derived from SQM on a linear (magnitude) scale, so it adds the
+ * way light physically does. Returns null when nothing nearby is brighter.
+ *
+ * @returns {null | { azimuth:number, direction:string, concentration:number }}
+ *   concentration ∈ 0..1: how directional the glow is (1 = one point source,
+ *   ~0 = evenly surrounded). Callers can threshold on it.
+ */
+function computeLightDome(site, allPoints, { radiusKm = 60, minKm = 4 } = {}) {
+    if (site.sqm == null) return null;
+    const bright = sqm => Math.pow(10, -sqm / 2.5); // relative linear brightness
+    const siteB = bright(site.sqm);
+    let ex = 0, ey = 0, wsum = 0;
+    for (const p of allPoints) {
+        if (p.sqm == null || p.sqm <= 0) continue;
+        const excess = bright(p.sqm) - siteB;
+        if (excess <= 0) continue; // only brighter-than-here points glow
+        const d = haversineDistance(site.lat, site.lng, p.lat, p.lng);
+        if (d < minKm || d > radiusKm) continue;
+        const w = excess / (d * d);
+        const az = bearing(site.lat, site.lng, p.lat, p.lng) * Math.PI / 180;
+        ex += w * Math.sin(az);
+        ey += w * Math.cos(az);
+        wsum += w;
+    }
+    if (wsum === 0) return null;
+    const mag = Math.sqrt(ex * ex + ey * ey);
+    let azimuth = Math.atan2(ex, ey) * 180 / Math.PI;
+    if (azimuth < 0) azimuth += 360;
+    return {
+        azimuth,
+        direction: bearingToDirection(azimuth),
+        concentration: mag / wsum,
+    };
 }
 
 /**
