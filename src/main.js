@@ -18,6 +18,7 @@ import { loadDarkSkyPlaces, placesNear, designationMeta } from './darkSkyPlaces.
 import { loadSqmReports, reportsNear, bestNearbyMeasurement, sqmColor } from './sqmReports.js';
 import { loadRedditLocations, nearestCoveredMetro, sentimentColor } from './redditLocations.js';
 import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
+import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
 
 // ─── State ───────────────────────────────────────────────────────────────
 let map, searchCircle, markersGroup;
@@ -661,6 +662,7 @@ async function startSearch() {
     renderResults(result);
     renderMapMarkers(result);
     showPanel('results');
+    saveLastSearch();            // persist so screen-off / tab eviction doesn't lose it
   } catch (err) {
     if (err.name === 'AbortError') {
       $('#progress-text').textContent = 'Scan cancelled.';
@@ -1625,6 +1627,66 @@ function syncOfflineIndicator() {
 window.addEventListener('online', syncOfflineIndicator);
 window.addEventListener('offline', syncOfflineIndicator);
 
+// ─── Persist last search (survive screen-off / tab eviction) ─────────────
+// Mobile browsers discard a backgrounded tab when the screen locks; on return
+// the page reloads fresh and the user would have to re-run the whole search.
+// We snapshot the last result set to IndexedDB and restore it on load.
+const LAST_SEARCH_KEY = 'lastSearch_v1';
+const LAST_SEARCH_TTL_MS = 24 * 60 * 60 * 1000; // a day-old search is stale enough to redo
+
+async function saveLastSearch() {
+  if (!currentResults?.sites?.length) return;
+  try {
+    await idbSet(LAST_SEARCH_KEY, {
+      savedAt: Date.now(),
+      userLat, userLng,
+      activeRedditMetro,
+      result: currentResults,
+      inputs: {
+        location: $('#input-location').value,
+        radius: $('#input-radius').value,
+        sqm: $('#input-sqm').value,
+        maxResults: $('#input-max-results').value,
+      },
+    });
+  } catch (err) {
+    console.warn('Could not save last search:', err.message);
+  }
+}
+
+async function restoreLastSearch() {
+  if (currentResults) return;        // a fresh search already populated state
+  if (parseSharedSite()) return;     // a shared-site link takes precedence
+  let snap;
+  try { snap = await idbGet(LAST_SEARCH_KEY); } catch { return; }
+  if (!snap?.result?.sites?.length) return;
+  if (Date.now() - (snap.savedAt || 0) > LAST_SEARCH_TTL_MS) {
+    idbDel(LAST_SEARCH_KEY).catch(() => {});
+    return;
+  }
+
+  userLat = snap.userLat;
+  userLng = snap.userLng;
+  activeRedditMetro = snap.activeRedditMetro || null;
+  if (snap.inputs) {
+    const set = (sel, v) => { if (v != null && $(sel)) $(sel).value = v; };
+    set('#input-location', snap.inputs.location);
+    set('#input-radius', snap.inputs.radius);
+    set('#input-sqm', snap.inputs.sqm);
+    set('#input-max-results', snap.inputs.maxResults);
+    // Refresh the slider value labels (they update on 'input').
+    $('#input-radius')?.dispatchEvent(new Event('input', { bubbles: true }));
+    $('#input-sqm')?.dispatchEvent(new Event('input', { bubbles: true }));
+  }
+
+  currentResults = snap.result;
+  expandedCards = new Set();
+  renderResults(snap.result);
+  renderMapMarkers(snap.result);
+  showPanel('results');
+  updateMoonChip();
+}
+
 // ─── Initialize ──────────────────────────────────────────────────────────
 initMap();
 initUI();
@@ -1636,6 +1698,9 @@ loadScanIndex().then(() => {
   handleSharedSiteHash();
   autoSelectScan({ silent: true });
 });
+
+// Restore the last search if the tab was evicted (e.g. phone screen locked).
+restoreLastSearch();
 
 // Load Reddit "locals say" stargazing spots once on app start. The actual
 // rendering of pins happens per-search, scoped to the nearest covered metro.
