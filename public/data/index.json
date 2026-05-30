@@ -53,12 +53,12 @@
       "validPoints": 596163
     },
     {
-      "filename": "scan_bbox_-125_24_-66.5_50_5km_worldatlas.json",
+      "filename": "scan_bbox_-125_24_-66.5_50_5km_skyglow.json",
       "stepKm": 5,
-      "layer": "WorldAtlas_2015",
-      "lastUpdated": "2026-05-28T22:25:24.582Z",
+      "layer": "VIIRS_skyglow",
+      "lastUpdated": "2026-05-30T20:44:52.739Z",
       "totalPoints": 596742,
-      "validPoints": 596741
+      "validPoints": 596742
     }
   ]
 }

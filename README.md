@@ -20,6 +20,7 @@ FindDarkSite tries to surface all of these at once.
 
 ### Sky quality
 - **WorldAtlas 2015** (Falchi et al.) for Bortle 1/2/3 gradation, plus **VIIRS 2023** as the distributable fallback. National CONUS 5 km scans baked in.
+- **✨ Sky-glow layer** — a **distributable** Bortle 1/2/3 model derived in-house from public data: VIIRS radiance convolved into multi-scale light-glow features, dark end calibrated against GLOBE at Night SQM. Recovers the dark-end gradation that raw VIIRS floors away (cross-validates to the World Atlas at *r* ≈ 0.83), so a public deploy without the license-restricted WorldAtlas still gets Bortle 1/2/3. Absolute labels are approximate (±~1 band); great for *ranking* spots. See [`scanner/skyglow/`](scanner/skyglow/).
 - **Bortle 1–9 colour map** with markers on a CARTO dark theme (Leaflet).
 - **Moon phase + rise/set** in the header. Astronomy-grade darkness window per night.
 - **🔭 Worth seeing tonight** — per-site celestial-target picks (Milky Way core, Andromeda, nebulae, clusters) ranked by *this spot's* conditions: tonight's real astronomical-dark window, the DEM terrain horizon in each target's direction, and the light-dome bearing. Each names the best time, altitude, and which way to look — and flags targets washed out by, or opposite, the city glow. (Fixed deep-sky objects via a built-in J2000 catalog; planets omitted — no ephemeris shipped.)
@@ -123,6 +124,7 @@ All of these are baked into the bundle by scripts in [`scripts/`](scripts/) — 
 |---|---|---|---|
 | **VIIRS VNL 2023** | Raster sky brightness (committed CONUS scan) | EOG, distributable | `node scanner/viirs/scan-raster.mjs` (needs EOG account, see [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) §4) |
 | **World Atlas 2015** (Falchi) | Bortle 1/2/3 modelled brightness | **No redistribution** | `node scanner/viirs/scan-raster.mjs --source worldatlas` — local-only; never commit |
+| **Sky-glow model** (derived) | Distributable Bortle 1/2/3 (VIIRS + GLOBE) | Public-data derivative, distributable | `node --max-old-space-size=3072 scanner/skyglow/calibrate-rings.mjs --write-scan` |
 | **Wikidata** (`wdt:P1435`) | IDA-certified Dark Sky Places | CC0 | `node scripts/fetch-dark-sky-places.mjs` |
 | **GLOBE at Night** | Citizen-science SQM + naked-eye observations | CC BY 4.0 | `node scripts/fetch-globe-at-night.mjs` |
 | **Reddit** (~80 metro subs) | Community-vetted spots | Posters' content; we link source | `node scripts/reddit-login-manual.mjs` then `node scripts/fetch-reddit-deep.mjs` (auth'd Playwright; LLM extraction + geocode after) |

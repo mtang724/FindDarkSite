@@ -404,7 +404,8 @@ function scanCoversLocation(scan, lat, lng) {
 function sourcePreference(scan) {
   let pref = 0;
   const tag = scanSourceTag(scan);
-  if (tag.includes('WorldAtlas')) pref -= 50;   // prefer WorldAtlas
+  if (tag.includes('WorldAtlas')) pref -= 50;   // best Bortle 1/2/3 (license-restricted, local only)
+  else if (tag.includes('Sky-glow')) pref -= 40; // distributable Bortle 1/2/3 model — beats raw VIIRS
   if (scanBbox(scan)) pref += 30;               // mild penalty for national
   return pref;
 }
@@ -459,11 +460,11 @@ async function autoSelectScan({ force = false, silent = false } = {}) {
       }
     }
   }
-  // No covering scan — prefer the national WorldAtlas/VIIRS bbox if either exists
+  // No covering scan — fall back to the best national bbox by source preference
+  // (WorldAtlas > Sky-glow > raw VIIRS — both modeled layers resolve Bortle 1/2/3).
   if (!best) {
-    best = availableScans.find(s => scanBbox(s) && /worldatlas/i.test(s.filename))
-        || availableScans.find(s => scanBbox(s))
-        || null;
+    const bboxScans = availableScans.filter(s => scanBbox(s));
+    best = bboxScans.sort((a, b) => sourcePreference(a) - sourcePreference(b))[0] || null;
   }
 
   if (!best) {
@@ -1629,6 +1630,7 @@ function scanBbox(s) {
 function scanSourceTag(s) {
   const layer = (s.layer || '').toLowerCase();
   if (s.filename?.includes('worldatlas') || layer.includes('worldatlas')) return '🌌 WorldAtlas';
+  if (s.filename?.includes('skyglow') || layer.includes('skyglow')) return '✨ Sky-glow';
   if (layer.includes('viirs')) return '🛰️ VIIRS';
   return '📡';
 }
