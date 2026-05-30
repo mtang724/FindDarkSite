@@ -271,16 +271,17 @@ They all start their own Vite dev server on a unique port so you can run multipl
 
 ## Deployment
 
+For a public deploy, **use `npm run build:deploy`, not `npm run build`.**
+
 ```bash
-npm run build          # → dist/
+npm run build:deploy   # → dist/ (license-guarded)
 ```
 
-In production the dev proxies (`/api/lp`, `/api/7timer`, `/api/ridb`) won't exist. Either deploy a server-side proxy for these endpoints or accept that:
-- The live VIIRS scan path won't work in-browser (CORS).
-- 7Timer requests will fail (no CORS).
-- RIDB requests will leak the key in client JS.
+⚠️ **License trap:** `vite build` copies *all* of `public/` into `dist/` — including any local World Atlas scan (Falchi 2016, **no redistribution**) and a local `index.json` that references it. Publishing that `dist/` would redistribute restricted data. `build:deploy` ([`scripts/build-deploy.mjs`](scripts/build-deploy.mjs)) builds, then **removes World Atlas data from `dist/data/`, strips it from the index, fails loudly if any survives, and pre-gzips the big scans.** The distributable **Sky-glow** layer stays in, so the public build still ships Bortle 1/2/3. (A fresh clone never has the World Atlas data at all — the safest deploy source.)
 
-The PWA shell + the pre-computed scans + all community data sources still work fine without proxies.
+Self-hosting on Ubuntu + nginx + your own domain (with the `/api/*` reverse proxies so 7Timer / RIDB / live-LP keep working): see **[`docs/SELF-HOSTING.md`](docs/SELF-HOSTING.md)** — a step-by-step runbook.
+
+Without server-side proxies the core finder still works (Overpass / Open-Meteo / OSRM / Nominatim are direct, CORS-OK); only 7Timer seeing/transparency, RIDB campgrounds, and the live-LP scan path need them. The PWA shell + pre-computed scans + all community data work fine regardless.
 
 ## Tech stack
 

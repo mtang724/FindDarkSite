@@ -23,6 +23,12 @@ Scans are generated locally from satellite rasters; the rasters/caches are gitig
   World-Atlas-derived scans are gitignored (`public/data/*worldatlas*.json`); **never commit or
   push them**, and never commit the local `public/data/index.json` change that lists a `worldatlas`
   scan. Keep that data local only. VIIRS-derived scans are fine to commit.
+- **Deploying: use `npm run build:deploy`, never plain `npm run build`.** `vite build` copies all of
+  `public/` into `dist/`, so a local World Atlas scan would land in `dist/` and get published.
+  `scripts/build-deploy.mjs` scrubs World Atlas from `dist/data/`, strips it from the index, fails
+  if any survives, and gzips the big scans. The distributable **Sky-glow** layer
+  (`*_skyglow.json`, derived from VIIRS+GLOBE) ships the Bortle 1/2/3 gradation publicly. Full
+  runbook: [docs/SELF-HOSTING.md](docs/SELF-HOSTING.md).
 - **EOG programmatic download is blocked** — use `scanner/viirs/browser-login.mjs` (Playwright),
   not password-grant. See DEPLOYMENT.md §4.
 - Secrets live in gitignored files only (`eog.local`, `reddit.local`, `scanner/viirs/cache/`,
