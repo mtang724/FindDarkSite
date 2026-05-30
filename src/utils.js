@@ -30,6 +30,25 @@ export function bearing(lat1, lng1, lat2, lng2) {
 }
 
 /**
+ * Destination point [lat, lng] reached by travelling `distKm` from a start
+ * point along a compass `bearingDeg`. Spherical-earth approximation — good
+ * enough for drawing short map overlays (a few km).
+ */
+export function destinationPoint(lat, lng, bearingDeg, distKm) {
+    const d = distKm / EARTH_RADIUS_KM;
+    const br = toRad(bearingDeg);
+    const lat1 = toRad(lat);
+    const lat2 = Math.asin(
+        Math.sin(lat1) * Math.cos(d) + Math.cos(lat1) * Math.sin(d) * Math.cos(br)
+    );
+    const lng2 = toRad(lng) + Math.atan2(
+        Math.sin(br) * Math.sin(d) * Math.cos(lat1),
+        Math.cos(d) - Math.sin(lat1) * Math.sin(lat2)
+    );
+    return [toDeg(lat2), toDeg(lng2)];
+}
+
+/**
  * Compass direction string from bearing
  */
 export function bearingToDirection(b) {

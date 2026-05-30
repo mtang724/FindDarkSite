@@ -5,7 +5,7 @@
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { findDarkSites } from './finder.js';
-import { haversineDistance, formatDistance, sqmToBortle, bortleDescription, escapeHtml, safeHttpUrl } from './utils.js';
+import { haversineDistance, formatDistance, sqmToBortle, bortleDescription, escapeHtml, safeHttpUrl, destinationPoint, bearingToDirection } from './utils.js';
 import { categorizePOI, searchNearbyPOIsBatch } from './poiSearch.js';
 import { moonSummary, darknessWindow, formatLocalTime } from './astronomy.js';
 import { bestNight } from './weather.js';
@@ -1280,6 +1280,28 @@ function renderMapMarkers({ sites, protectedAreas }) {
     }).addTo(markersGroup);
     siteMarkers[index] = marker;
 
+    // Light-dome wedge — an amber sector pointing toward where the surrounding
+    // city glow concentrates, so the observer knows which way to face away.
+    // Only drawn when the glow is clearly directional (matches the score pill).
+    let domeLine = '';
+    const dome = site.lightDome;
+    if (dome && dome.concentration > 0.45) {
+      const faceAway = bearingToDirection((dome.azimuth + 180) % 360);
+      const reach = 2 + dome.concentration * 4;        // 2–6 km, scales with how directional it is
+      const apex = [site.lat, site.lng];
+      const span = 26;                                  // half-angle of the wedge
+      const wedge = [apex];
+      for (let a = -span; a <= span; a += span) {
+        wedge.push(destinationPoint(site.lat, site.lng, dome.azimuth + a, reach));
+      }
+      L.polygon(wedge, {
+        color: '#f4a261', fillColor: '#f4a261',
+        fillOpacity: 0.18, weight: 1, opacity: 0.5,
+        interactive: false,
+      }).addTo(markersGroup);
+      domeLine = `<div class="popup-dome">🏙️ city glow ${dome.direction} — face ${faceAway}</div>`;
+    }
+
     // Clicking the marker should also activate the matching card
     marker.on('click', () => highlightSite(index, { fromMarker: true }));
 
@@ -1288,6 +1310,7 @@ function renderMapMarkers({ sites, protectedAreas }) {
       <div class="popup-sqm">SQM ${site.sqm.toFixed(1)} · Bortle ${site.bortle}</div>
       <div>${formatDistance(site.distance)} ${site.direction}</div>
       <div>${site.pois.length} nearby facilities</div>
+      ${domeLine}
       <a class="popup-link" href="https://www.google.com/maps/dir/?api=1&destination=${site.lat},${site.lng}&travelmode=driving" target="_blank">🧭 Navigate here</a>
       <br>
       <a class="popup-link" href="https://www.google.com/maps/@${site.lat},${site.lng},15z/data=!3m1!1e1" target="_blank">🛰️ View satellite</a>
