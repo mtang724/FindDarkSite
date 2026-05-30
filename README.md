@@ -22,6 +22,7 @@ FindDarkSite tries to surface all of these at once.
 - **WorldAtlas 2015** (Falchi et al.) for Bortle 1/2/3 gradation, plus **VIIRS 2023** as the distributable fallback. National CONUS 5 km scans baked in.
 - **Bortle 1–9 colour map** with markers on a CARTO dark theme (Leaflet).
 - **Moon phase + rise/set** in the header. Astronomy-grade darkness window per night.
+- **🔭 Worth seeing tonight** — per-site celestial-target picks (Milky Way core, Andromeda, nebulae, clusters) ranked by *this spot's* conditions: tonight's real astronomical-dark window, the DEM terrain horizon in each target's direction, and the light-dome bearing. Each names the best time, altitude, and which way to look — and flags targets washed out by, or opposite, the city glow. (Fixed deep-sky objects via a built-in J2000 catalog; planets omitted — no ephemeris shipped.)
 
 ### Tonight's conditions
 - **7-day Open-Meteo forecast**: cloud %, precipitation, temperature, **dewpoint margin**, **wind**, humidity.
@@ -32,6 +33,7 @@ FindDarkSite tries to surface all of these at once.
 - **Reachability**: drivable road within 800 m of the seed point (OSM `highway`, polyline-exact distance).
 - **Remoteness**: nearest town (settlement-size-weighted) + nearest `landuse=residential`.
 - **Horizon profile**: DEM-sampled along 8 azimuths × 5 distances → polar SVG, max-obstruction filter.
+- **Light-dome direction**: the surrounding city glow's bearing, vector-summed from the scan grid (inverse-square weighted) and drawn as an amber wedge on the map with a *face-away* hint — so you know which way to point the gear.
 - **Land status**: in-polygon check against OSM `boundary=protected_area` + IDA-certified Dark Sky Places (overlay).
 - **Driving time** via OSRM (vs. straight-line distance).
 
@@ -43,6 +45,7 @@ FindDarkSite tries to surface all of these at once.
 ### Decision aids
 - **Best Nights view** — ranks (site × night) combos by a three-tier blended 0–100 score (see [Design → Layered ranking](#design) for the breakdown); each row explains which axis held it back.
 - **Auto-source selection** — drops the right scan based on your location, prefers WorldAtlas over VIIRS, falls back to the national CONUS scan.
+- **Live radius preview** — the search-radius circle updates on the map as you drag the slider, before you even run a search.
 - **Geocoded location input** — lat/lng, US ZIP, or any address/place name. Nominatim under the hood, 30-day IndexedDB cache.
 - **Simplified search panel** — only Location / Search Radius / Max Results are visible by default; every threshold, data-source, and enrichment toggle lives inside a collapsed `[+] Advanced filters & sources`. Most users never need to open it.
 - **Share links** — `#site=lat,lng,sqm` URL pins a result for sending.
@@ -50,6 +53,7 @@ FindDarkSite tries to surface all of these at once.
 
 ### PWA
 - Installable; runs **offline** for the app shell + last-loaded scan. Map tiles + scans cached via `vite-plugin-pwa`. The `⬇️ Install` button appears when the browser supports it; a `📡 Offline` chip flips on with `navigator.onLine`.
+- **Survives screen-off** — the last search (results + map + inputs) is snapshotted to IndexedDB and restored on reload, so locking your phone or a backgrounded-tab eviction doesn't force you to re-run the whole search.
 
 ## Quick start
 
@@ -186,7 +190,8 @@ FindDarkSite/
 │   ├── weather.js              # Open-Meteo cloud/dew/wind night summaries
 │   ├── astroWeather.js         # 7Timer seeing + transparency
 │   ├── routing.js              # OSRM driving time
-│   ├── astronomy.js            # SunCalc moon/sun helpers
+│   ├── astronomy.js            # SunCalc moon/sun + dark-window helpers
+│   ├── skyTargets.js           # tonight's celestial targets (RA/Dec→Alt/Az, terrain + glow ranking)
 │   ├── scoring.js              # nightScore() + Best Nights ranking
 │   ├── darkSkyPlaces.js        # IDA places loader
 │   ├── sqmReports.js           # GLOBE at Night loader
@@ -247,7 +252,14 @@ Re-run cadence we use: monthly for Reddit, quarterly for everything else.
 
 ## Tests
 
-Each feature has a Playwright check that drives the real app in headless Chromium. Run any of them with:
+Pure logic has fast `node:test` unit tests — including the per-(site, night) scorer and the tonight's-targets astronomy/ranking:
+
+```bash
+node --test tests/raster-cache.test.mjs tests/grid.test.mjs tests/scan-store.test.mjs \
+            tests/convert.test.mjs tests/scoring.test.mjs tests/skytargets.test.mjs
+```
+
+Each feature also has a Playwright check that drives the real app in headless Chromium:
 
 ```bash
 node tests/<name>.mjs
@@ -272,7 +284,7 @@ The PWA shell + the pre-computed scans + all community data sources still work f
 
 - **Frontend:** vanilla JS + Vite + `vite-plugin-pwa`
 - **Map:** Leaflet, CARTO Dark Matter tiles, Esri Imagery as the satellite layer
-- **Astronomy:** SunCalc for moon/sun rise+set
+- **Astronomy:** SunCalc for moon/sun rise+set; a small built-in equatorial→horizontal solver for deep-sky target positions
 - **Light-pollution rasters:** `geotiff` (Node-side scanner only)
 - **Caching:** IndexedDB via `idb-keyval`; Workbox runtime caches for tiles + JSON
 - **Icons:** `sharp` (build-time rasterizer)

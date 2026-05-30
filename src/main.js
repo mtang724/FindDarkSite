@@ -19,6 +19,7 @@ import { loadSqmReports, reportsNear, bestNearbyMeasurement, sqmColor } from './
 import { loadRedditLocations, nearestCoveredMetro, sentimentColor } from './redditLocations.js';
 import { exportFavorites, importFavorites, siteShareUrl, parseSharedSite, copyToClipboard } from './sharing.js';
 import { get as idbGet, set as idbSet, del as idbDel } from 'idb-keyval';
+import { recommendTonight } from './skyTargets.js';
 
 // ─── State ───────────────────────────────────────────────────────────────
 let map, searchCircle, markersGroup;
@@ -1141,6 +1142,7 @@ function renderSiteCard(site, index, isExpanded = false) {
         </div>
         ${horizonHtml}
       </div>
+      ${renderTonightTargets(site)}
       <div class="card-amenities">
         ${amenitiesHtml}
         ${noFacilitiesWarning}
@@ -1163,6 +1165,44 @@ function renderSiteCard(site, index, isExpanded = false) {
       </div>
     </div>
   `;
+}
+
+// "What's worth seeing tonight" for this specific site — ranked by the dark
+// window, the site's terrain horizon, and its light-dome direction.
+function renderTonightTargets(site) {
+  const today = new Date().toISOString().slice(0, 10);
+  const tonight = site.forecast?.find(n => n.date >= today) || site.forecast?.[0];
+  const dateStr = tonight?.date || today;
+  const window = darknessWindow(site.lat, site.lng, new Date(dateStr + 'T12:00:00'));
+  const { targets, note } = recommendTonight(site, window, { limit: 4 });
+
+  if (!targets.length) {
+    return note
+      ? `<div class="card-targets"><div class="card-targets-title">🔭 Worth seeing tonight</div><div class="targets-note">${escapeHtml(note)}</div></div>`
+      : '';
+  }
+
+  const items = targets.map(t => {
+    // reasons[0] is the "highest ~time, X° up in DIR" line — already shown in
+    // the meta; surface any remaining caveats (terrain / glow / moon).
+    const caveats = (t.reasons || []).slice(1);
+    return `
+      <div class="target-item">
+        <div class="target-head">
+          <span class="target-icon">${t.icon}</span>
+          <span class="target-name">${escapeHtml(t.name)}</span>
+          <span class="target-meta">${t.altitude}° ${escapeHtml(t.direction)} · ${escapeHtml(t.bestTime)}</span>
+        </div>
+        <div class="target-blurb">${escapeHtml(t.blurb)}</div>
+        ${caveats.length ? `<div class="target-caveat">${escapeHtml(caveats.join(' · '))}</div>` : ''}
+      </div>`;
+  }).join('');
+
+  return `
+    <div class="card-targets" title="Ranked by tonight's dark window, this spot's terrain horizon, and the city-glow direction">
+      <div class="card-targets-title">🔭 Worth seeing tonight</div>
+      ${items}
+    </div>`;
 }
 
 function renderAstroChips(n) {

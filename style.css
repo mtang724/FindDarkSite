@@ -1523,6 +1523,60 @@ select {
   color: var(--text-secondary);
 }
 
+.card-targets {
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px dashed var(--border-color);
+}
+
+.card-targets-title {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 8px;
+}
+
+.target-item {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border-faint);
+}
+.target-item:last-child { border-bottom: none; }
+
+.target-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+.target-icon { font-size: 13px; }
+.target-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.target-meta {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  color: var(--cyan-bright, #4ecdc4);
+  white-space: nowrap;
+}
+.target-blurb {
+  font-size: 11px;
+  color: var(--text-secondary, var(--text-muted));
+  margin-top: 2px;
+}
+.target-caveat {
+  font-size: 10.5px;
+  color: var(--ember, #f4a261);
+  margin-top: 2px;
+}
+.targets-note {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
 .card-pois {
   margin-top: 12px;
   padding-top: 10px;
